@@ -1,6 +1,8 @@
 # 互动实验室
 
-一个由 23 个独立网页组成的浏览器互动实验集，探索摄像头、姿态与手势识别，以及声音和音乐交互。入口页面会按类别展示全部实验。
+一个由 24 个独立网页组成的浏览器互动实验集，探索摄像头、姿态与手势识别，以及声音和音乐交互。入口页面会按类别展示全部实验。
+
+直接体验风格试衣间：[`https://chenchenliu0315.github.io/link1/play/`](https://chenchenliu0315.github.io/link1/play/)。
 
 ## 运行
 
@@ -16,13 +18,13 @@ python3 -m http.server 8000 --bind 127.0.0.1
 
 ## 实验目录
 
-### 摄像头互动（15）
+### 摄像头互动（16）
 
 位于 [`camera/`](./camera/)：
 
 1. [面部特效](./camera/01面部特效/index.html)
 2. [体感接球](./camera/02体感接球/index.html)
-3. [手势控制](./camera/03手势控制/index.html)
+3. [年龄穿搭挑战](./camera/03手势控制/index.html)
 4. [风格迁移](./camera/04风格迁移/index.html)
 5. [隔空画笔](./camera/05隔空画笔/index.html)
 6. [AR 放置](./camera/06AR放置/index.html)
@@ -35,6 +37,7 @@ python3 -m http.server 8000 --bind 127.0.0.1
 13. [表情翻页书](./camera/13表情翻页书/index.html)
 14. [动作舞蹈](./camera/14动作舞蹈/index.html)
 15. [视觉暂留](./camera/15视觉暂留/index.html)
+16. [手势穿搭推荐](./camera/16每日穿搭/index.html)
 
 ### 声音互动（8）
 

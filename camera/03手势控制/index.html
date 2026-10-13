@@ -1,485 +1,1479 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<title>手势控制 · MediaPipe Hands</title>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0e0e12;--card:#1a1a24;--card2:#22223a;--accent:#6c63ff;
-  --accent2:#ff6b9d;--text:#e8e8f0;--text2:#9898b0;--radius:16px;
-  --green:#4ade80;--red:#f87171;--amber:#fbbf24;
-}
-html{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;
-  background:var(--bg);color:var(--text);overflow-x:hidden;scroll-behavior:smooth}
-body{min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:12px 16px 40px}
-h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:800;letter-spacing:-.02em;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;background-clip:text;text-align:center;margin-top:8px}
-.subtitle{text-align:center;color:var(--text2);font-size:.85rem;margin-top:4px;letter-spacing:.04em}
-.hint{background:var(--card);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);
-  padding:12px 18px;margin:14px 0 10px;font-size:.82rem;color:var(--text2);line-height:1.6;
-  max-width:640px;width:100%;text-align:center}
-.hint em{color:var(--accent);font-style:normal;font-weight:600}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e9">
+  <title>风格试衣间 · 手势穿搭游戏</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f5f1e9;
+      --surface: #fffdf8;
+      --ink: #252820;
+      --muted: #77796f;
+      --line: #ded9cf;
+      --accent: #bb6248;
+      --accent-dark: #984b36;
+      --olive: #68745d;
+      --soft: #eee8dc;
+      --shadow: 0 18px 50px rgba(55, 48, 37, .08);
+      font-family: "DM Sans", "Microsoft YaHei", "PingFang SC", sans-serif;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
 
-/* video / canvas area */
-.cam-wrap{position:relative;width:100%;max-width:640px;aspect-ratio:4/3;border-radius:var(--radius);
-  overflow:hidden;background:#000;margin-bottom:14px}
-.cam-wrap video,.cam-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.cam-wrap video{transform:scaleX(-1)}
-.cam-wrap canvas{transform:scaleX(-1);pointer-events:none}
+    * { box-sizing: border-box; }
+    body { min-width: 320px; min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink); }
+    body.camera-open { overflow: hidden; }
+    button, a { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    [hidden] { display: none !important; }
 
-/* gesture HUD */
-.gesture-hud{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);
-  border-radius:10px;padding:8px 14px;font-size:.82rem;font-weight:600;letter-spacing:.03em;
-  display:flex;align-items:center;gap:8px;z-index:5;pointer-events:none}
-.gesture-hud .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .2s}
-.dot-idle{background:var(--text2)}.dot-ok{background:var(--green)}.dot-fist{background:var(--amber)}.dot-wave{background:var(--accent)}
+    .page-shell { width: min(1240px, calc(100% - 64px)); margin: 0 auto; }
+    .topbar { display: flex; height: 76px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+    .brand { display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; }
+    .brand-mark { display: grid; width: 38px; aspect-ratio: 1; place-items: center; background: var(--accent); color: white; font-family: Georgia, serif; font-size: 21px; }
+    .brand strong, .brand small { display: block; }
+    .brand strong { font-family: Georgia, "Noto Serif SC", serif; font-size: 15px; font-weight: 600; }
+    .brand small { margin-top: 4px; color: var(--muted); font-size: 8px; letter-spacing: .16em; }
+    .topbar-actions { display: flex; align-items: center; gap: 18px; }
+    .lab-link { color: var(--muted); font-size: 12px; text-decoration: none; }
+    .lab-link:hover { color: var(--accent-dark); }
+    .camera-toggle, .plain-button, .primary-button { min-height: 40px; padding: 0 14px; border: 1px solid var(--line); background: transparent; cursor: pointer; font-size: 11px; transition: background .18s, color .18s, border-color .18s; }
+    .camera-toggle:hover, .plain-button:hover { border-color: var(--ink); background: var(--surface); }
+    .camera-toggle.is-active { border-color: var(--olive); color: var(--olive); }
+    .primary-button { border-color: var(--accent); background: var(--accent); color: white; font-weight: 600; }
+    .primary-button:hover { border-color: var(--accent-dark); background: var(--accent-dark); }
+    .primary-button:disabled { cursor: not-allowed; opacity: .45; }
 
-/* action toast */
-.toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-  background:rgba(0,0,0,.7);backdrop-filter:blur(6px);border-radius:10px;
-  padding:8px 20px;font-size:.85rem;font-weight:600;opacity:0;transition:opacity .25s;
-  pointer-events:none;z-index:5;white-space:nowrap}
-.toast.show{opacity:1}
+    .intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 36px 0 25px; }
+    .eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--olive); font-size: 9px; font-weight: 700; letter-spacing: .17em; }
+    .eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-family: Georgia, "Noto Serif SC", serif; font-size: clamp(30px, 4vw, 43px); font-weight: 500; letter-spacing: .01em; }
+    .intro-copy { max-width: 570px; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+    .scoreboard { display: flex; gap: 8px; }
+    .stat { min-width: 90px; padding: 10px 13px; border: 1px solid var(--line); background: rgba(255, 253, 248, .55); }
+    .stat span, .stat strong { display: block; }
+    .stat span { color: var(--muted); font-size: 9px; }
+    .stat strong { margin-top: 4px; font-size: 18px; font-variant-numeric: tabular-nums; }
+    .stat.timer strong { color: var(--accent-dark); }
+    .stat.timer.is-urgent strong { animation: pulse .7s ease-in-out infinite alternate; }
+    @keyframes pulse { to { opacity: .45; } }
 
-/* loading overlay */
-.loading-overlay{position:absolute;inset:0;background:rgba(14,14,18,.92);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;z-index:10;gap:12px;transition:opacity .4s}
-.loading-overlay.hidden{opacity:0;pointer-events:none}
-.spinner{width:36px;height:36px;border:3px solid var(--card2);border-top-color:var(--accent);
-  border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.load-text{font-size:.82rem;color:var(--text2)}
+    .game-grid { display: grid; grid-template-columns: minmax(220px, .82fr) minmax(260px, .9fr) minmax(340px, 1.28fr); min-height: 552px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); }
+    .profile-panel, .fitting-panel, .wardrobe-panel { min-width: 0; padding: 23px; }
+    .profile-panel, .fitting-panel { border-right: 1px solid var(--line); }
+    .section-kicker { margin: 0 0 8px; color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .16em; }
+    .panel-title { margin: 0; font-family: Georgia, "Noto Serif SC", serif; font-size: 20px; font-weight: 500; }
+    .profile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .round-pill { padding: 6px 8px; background: var(--soft); color: var(--olive); font-size: 9px; white-space: nowrap; }
+    .field-label { display: block; margin: 24px 0 9px; color: var(--muted); font-size: 10px; }
+    .age-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .age-button, .gender-button { min-height: 38px; padding: 6px 8px; border: 1px solid var(--line); background: transparent; cursor: pointer; text-align: left; transition: .18s; }
+    .age-button:hover, .gender-button:hover { border-color: #aaa995; background: #f8f5ed; }
+    .age-button[aria-pressed="true"], .gender-button[aria-pressed="true"] { border-color: var(--accent); background: #fbf0e9; box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent-dark); }
+    .age-button strong, .age-button small { display: block; }
+    .age-button strong { font-size: 10px; font-weight: 600; }
+    .age-button small { margin-top: 3px; color: var(--muted); font-size: 8px; }
+    .gender-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .gender-button { text-align: center; font-size: 10px; }
+    .mission-card { margin-top: 20px; padding: 14px; background: #f1ede4; }
+    .mission-card span { display: block; color: var(--olive); font-size: 8px; font-weight: 700; letter-spacing: .12em; }
+    .mission-card strong { display: block; margin: 7px 0 5px; font-family: Georgia, "Noto Serif SC", serif; font-size: 15px; font-weight: 500; }
+    .mission-card p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.7; }
+    .context-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 12px; }
+    .context-select label { display: block; margin-bottom: 5px; color: var(--muted); font-size: 8px; }
+    .context-select select { width: 100%; min-height: 34px; padding: 0 7px; border: 1px solid #d7d0c3; border-radius: 0; background: #fffdf8; color: var(--ink); font: inherit; font-size: 9px; }
+    .combo { margin-top: 19px; }
+    .combo-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 9px; }
+    .combo-head strong { color: var(--accent-dark); }
+    .combo-track { height: 4px; margin-top: 8px; overflow: hidden; background: var(--soft); }
+    .combo-track i { display: block; width: 0; height: 100%; background: var(--accent); transition: width .25s; }
+    .game-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 15px; }
+    .game-controls button { min-height: 35px; padding: 0 7px; font-size: 9px; }
 
-/* error */
-.error-box{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
-  justify-content:center;gap:14px;background:rgba(14,14,18,.95);z-index:11;padding:20px;text-align:center}
-.error-box.show{display:flex}
-.error-box p{color:var(--text2);font-size:.85rem;max-width:320px;line-height:1.5}
-.retry-btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 28px;
-  font-size:.85rem;font-weight:600;cursor:pointer;transition:transform .15s}
-.retry-btn:active{transform:scale(.96)}
+    .fitting-panel { display: flex; flex-direction: column; align-items: center; }
+    .fitting-head { display: flex; width: 100%; align-items: center; justify-content: space-between; }
+    .live-status { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8px; }
+    .live-status i { width: 6px; height: 6px; border-radius: 50%; background: #9a9b8d; }
+    .live-status.is-playing i { background: #78a178; }
+    .try-on { position: relative; display: flex; width: 100%; flex: 1; min-height: 310px; align-items: center; justify-content: center; margin: 15px 0 11px; overflow: hidden; background: radial-gradient(ellipse at center, #f8f5ed 0, #f1ede4 72%); }
+    .try-on::before, .try-on::after { position: absolute; bottom: 22px; width: 30%; height: 1px; background: #d8d1c4; content: ""; }
+    .try-on::before { left: 5%; transform: rotate(-13deg); }
+    .try-on::after { right: 5%; transform: rotate(13deg); }
+    .hanger { position: absolute; top: 15px; color: #c3bba9; font-size: 13px; letter-spacing: .12em; }
+    .model-figure { position: relative; z-index: 1; display: block; width: min(100%, 260px); height: 290px; overflow: visible; filter: drop-shadow(0 9px 7px rgba(56, 49, 37, .12)); }
+    .model-figure .garment { transition: fill .2s ease; }
+    .model-figure .garment-detail { fill: none; stroke: rgba(255, 253, 248, .86); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+    .model-figure .garment-shadow { fill: rgba(38, 42, 34, .12); }
+    .preview-caption { position: absolute; right: 11px; bottom: 9px; left: 11px; display: flex; justify-content: space-between; color: var(--muted); font-size: 8px; }
+    .equipped { width: 100%; }
+    .equipped-heading { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--muted); font-size: 9px; }
+    .equipped-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+    .equipped-piece { min-width: 0; padding: 7px 4px; border: 1px solid var(--line); text-align: center; }
+    .equipped-piece.is-done { border-color: #b9c1ae; background: #f3f5ee; }
+    .equipped-piece span, .equipped-piece small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .equipped-piece span { font-size: 15px; }
+    .equipped-piece small { margin-top: 4px; color: var(--muted); font-size: 7px; }
 
-/* gallery */
-.gallery{width:100%;max-width:640px}
-.gallery-label{font-size:.78rem;color:var(--text2);margin-bottom:8px;text-align:center}
-.gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.gallery-grid .g-item{position:relative;aspect-ratio:4/3;border-radius:10px;overflow:hidden;
-  border:2px solid transparent;transition:border-color .25s,box-shadow .25s;cursor:pointer}
-.g-item img{width:100%;height:100%;object-fit:cover;display:block}
-.g-item.active{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.25)}
-.g-item.confirmed{border-color:var(--green);box-shadow:0 0 0 3px rgba(74,222,128,.3)}
-.g-item .g-idx{position:absolute;top:4px;left:6px;font-size:.65rem;color:rgba(255,255,255,.6);
-  background:rgba(0,0,0,.45);border-radius:4px;padding:1px 6px;pointer-events:none}
+    .wardrobe-panel { display: flex; flex-direction: column; }
+    .wardrobe-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+    .piece-count { color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+    .stepper { display: flex; gap: 5px; margin: 17px 0 14px; }
+    .step-dot { height: 4px; flex: 1; background: var(--soft); }
+    .step-dot.is-done { background: #9aa58e; }
+    .step-dot.is-current { background: var(--accent); }
+    .wardrobe-hint { min-height: 34px; margin: 0 0 11px; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .wardrobe-options { display: grid; gap: 8px; }
+    .option-card { display: flex; min-height: 70px; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid var(--line); background: white; cursor: pointer; text-align: left; transition: transform .16s, border-color .16s, background .16s; }
+    .option-card:hover { transform: translateY(-1px); border-color: #aaa995; }
+    .option-card[aria-pressed="true"] { border-color: var(--accent); background: #fbf2eb; box-shadow: inset 0 0 0 1px var(--accent); }
+    .option-icon { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; background: #f1ede4; font-size: 20px; }
+    .option-copy { min-width: 0; flex: 1; }
+    .option-copy strong, .option-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .option-copy strong { font-size: 10px; font-weight: 600; }
+    .option-copy small { margin-top: 4px; color: var(--muted); font-size: 8px; }
+    .option-color { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border: 1px solid #0002; border-radius: 50%; background: var(--swatch); vertical-align: -1px; }
+    .option-mark { color: var(--accent); font-size: 14px; }
+    .wardrobe-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 15px; }
+    .keyboard-hint { color: var(--muted); font-size: 8px; line-height: 1.7; }
+    kbd { display: inline-block; min-width: 16px; padding: 1px 3px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); text-align: center; }
+    .wardrobe-footer .primary-button { min-height: 37px; white-space: nowrap; }
 
-footer{margin-top:auto;padding-top:24px;font-size:.72rem;color:var(--text2);opacity:.5;text-align:center}
+    .camera-dock { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) auto; gap: 10px; align-items: center; margin-top: 18px; padding: 10px; border: 1px solid var(--line); background: rgba(255, 253, 248, .72); }
+    .camera-view { position: relative; width: 100%; min-width: 0; aspect-ratio: 4 / 3; overflow: hidden; background: #252820; }
+    .camera-view video, .camera-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .camera-view canvas { pointer-events: none; }
+    #camera-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: white; font-size: 9px; text-align: center; }
+    .video-look { position: absolute; z-index: 2; right: 7px; bottom: 7px; display: grid; width: 94px; justify-items: center; padding: 5px 5px 6px; border: 1px solid #fff8; background: rgba(255, 253, 248, .9); color: var(--ink); text-align: center; }
+    .video-look-label { width: 100%; overflow: hidden; color: var(--olive); font-size: 7px; font-weight: 700; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
+    .video-look-model { display: block; width: 66px; height: 88px; overflow: visible; }
+    .video-look-choice { width: 100%; overflow: hidden; font-size: 7px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+    .camera-reaction { position: absolute; z-index: 3; top: 8%; left: 50%; display: flex; max-width: min(460px, calc(100% - 36px)); align-items: center; gap: 12px; padding: 12px 20px 12px 14px; transform: translate(-50%, -12px) scale(.92); border: 1px solid #fff9; border-radius: 999px; background: rgba(255, 253, 248, .94); box-shadow: 0 12px 36px #1115; color: var(--ink); opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .22s cubic-bezier(.2, .8, .2, 1); }
+    .camera-reaction.is-visible { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    .camera-reaction-emoji { font-size: 38px; line-height: 1; animation: reaction-bounce .5s ease-in-out infinite alternate; }
+    .camera-reaction-copy { min-width: 0; }
+    .camera-reaction-copy strong, .camera-reaction-copy small { display: block; }
+    .camera-reaction-copy strong { font-size: 15px; white-space: nowrap; }
+    .camera-reaction-copy small { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    @keyframes reaction-bounce { to { transform: translateY(-5px) rotate(-5deg) scale(1.08); } }
+    .camera-info { min-width: 0; }
+    .camera-info strong { display: block; margin: 7px 0 3px; font-size: 10px; }
+    .camera-info p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.5; }
+    .sound-toggle { margin-top: 9px; padding: 5px 8px; border: 1px solid #d7d0c3; background: #fffdf8; cursor: pointer; color: var(--ink); font-size: 9px; }
+    .sound-toggle[aria-pressed="false"] { color: var(--muted); }
+    .camera-status { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 8px; }
+    .camera-status i { width: 6px; height: 6px; border-radius: 50%; background: #a5a398; }
+    .camera-status.is-live i { background: #71a174; }
+    .camera-close { align-self: start; padding: 2px 5px; border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 16px; }
+    .camera-dock.is-maximized { position: fixed; z-index: 40; inset: 0; display: block; width: 100vw; height: 100vh; height: 100dvh; min-height: 0; margin: 0; padding: 0; overflow: hidden; border: 0; background: #10110f; }
+    .camera-dock.is-maximized .camera-view { position: absolute; inset: 0; width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; }
+    .camera-dock.is-maximized .camera-view video, .camera-dock.is-maximized .camera-view canvas { object-fit: cover; }
+    .camera-dock.is-maximized .camera-info { position: absolute; z-index: 3; bottom: max(14px, env(safe-area-inset-bottom)); left: max(14px, env(safe-area-inset-left)); width: min(430px, calc(100vw - 120px)); padding: 14px 16px; border: 1px solid #ffffff40; background: rgba(20, 22, 20, .82); color: #fff; }
+    .camera-dock.is-maximized .camera-info strong { color: #fff; font-size: 14px; }
+    .camera-dock.is-maximized .camera-info p, .camera-dock.is-maximized .camera-status { color: #f1efe8; font-size: 11px; }
+    .camera-dock.is-maximized .sound-toggle { border-color: #ffffff80; background: rgba(255, 255, 255, .12); color: #fff; font-size: 11px; }
+    .camera-dock.is-maximized .sound-toggle[aria-pressed="false"] { color: #ddd; }
+    .camera-dock.is-maximized .camera-close { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #ffffffaa; border-radius: 50%; background: rgba(20, 22, 20, .78); color: #fff; font-size: 27px; line-height: 1; }
+    .camera-dock.is-maximized .video-look { right: clamp(12px, 2vw, 30px); bottom: clamp(12px, 2vw, 30px); width: clamp(130px, 16vw, 190px); padding: 9px 8px 10px; }
+    .camera-dock.is-maximized .video-look-label, .camera-dock.is-maximized .video-look-choice { font-size: 10px; }
+    .camera-dock.is-maximized .video-look-model { width: clamp(96px, 11vw, 138px); height: clamp(128px, 15vw, 184px); }
+    .camera-dock.is-maximized .camera-reaction { top: max(8%, calc(env(safe-area-inset-top) + 64px)); }
+    .game-footer { display: flex; justify-content: space-between; gap: 15px; padding: 14px 0 25px; color: var(--muted); font-size: 9px; }
+    .toast { position: fixed; z-index: 20; bottom: 20px; left: 50%; max-width: calc(100% - 32px); padding: 11px 18px; transform: translate(-50%, 12px); border: 1px solid #ddd2c4; background: #292a24; color: white; font-size: 11px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+    .toast.is-visible { transform: translate(-50%, 0); opacity: 1; }
+    .result-overlay { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(37, 40, 32, .48); }
+    .result-dialog { position: relative; width: min(440px, 100%); padding: 33px; background: var(--surface); box-shadow: 0 24px 80px #17171033; text-align: center; }
+    .result-dialog h2 { margin: 5px 0 12px; font-family: Georgia, "Noto Serif SC", serif; font-size: 26px; font-weight: 500; }
+    .result-score { margin: 16px 0; color: var(--accent); font-size: 45px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .result-score small { display: block; margin-top: -3px; color: var(--muted); font-size: 8px; letter-spacing: .16em; }
+    .result-copy { color: var(--muted); font-size: 11px; line-height: 1.8; }
+    .result-actions { display: flex; justify-content: center; gap: 8px; margin-top: 21px; }
+    .gesture-cursor { position: fixed; z-index: 18; width: 17px; height: 17px; border: 2px solid var(--accent); border-radius: 50%; box-shadow: 0 0 0 5px #bb624833; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .gesture-cursor.is-visible { opacity: 1; }
+    .gesture-badge { position: fixed; z-index: 19; right: 18px; bottom: 18px; padding: 7px 10px; background: #292a24; color: white; font-size: 9px; opacity: 0; pointer-events: none; transition: opacity .2s; }
+    .gesture-badge.is-visible { opacity: 1; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 
-/* reduced motion */
-@media(prefers-reduced-motion:reduce){
-  *{animation-duration:0s!important;transition-duration:0s!important}
-  .spinner{display:none}
-}
-/* print */
-@media print{
-  body{background:#fff;color:#000}
-  .cam-wrap,.loading-overlay,.gesture-hud,.toast,.error-box{display:none!important}
-  .gallery-grid{gap:4px}
-  h1{background:none;-webkit-text-fill-color:#000;color:#000}
-}
-/* mobile tweaks */
-@media(max-width:480px){
-  body{padding:8px 10px 30px}
-  .gallery-grid{gap:6px}
-  .hint{font-size:.76rem;padding:10px 12px}
-}
-</style>
+    @media (max-width: 980px) {
+      .page-shell { width: min(820px, calc(100% - 36px)); }
+      .game-grid { grid-template-columns: minmax(210px, .75fr) minmax(240px, .9fr); }
+      .profile-panel { border-bottom: 1px solid var(--line); }
+      .fitting-panel { grid-column: 2; grid-row: 1; border-right: 0; border-bottom: 1px solid var(--line); }
+      .wardrobe-panel { grid-column: 1 / -1; min-height: 400px; }
+      .wardrobe-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .option-card { min-height: 95px; flex-direction: column; align-items: flex-start; }
+      .option-mark { position: absolute; }
+    }
+    @media (max-width: 620px) {
+      .page-shell { width: calc(100% - 24px); }
+      .topbar { height: 64px; }
+      .lab-link { display: none; }
+      .intro { display: block; padding: 26px 0 18px; }
+      .scoreboard { margin-top: 17px; }
+      .stat { min-width: 0; flex: 1; }
+      .game-grid { grid-template-columns: 1fr; }
+      .profile-panel, .fitting-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+      .profile-panel { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+      .profile-heading, .field-label:first-of-type, .age-list { grid-column: 1 / -1; }
+      .field-label { margin-top: 17px; }
+      .mission-card, .combo { margin-top: 16px; }
+      .fitting-panel { grid-column: auto; grid-row: auto; min-height: 430px; }
+      .wardrobe-panel { grid-column: auto; min-height: 410px; padding: 19px; }
+      .wardrobe-options { grid-template-columns: 1fr; }
+      .option-card { min-height: 67px; flex-direction: row; align-items: center; }
+      .option-mark { position: static; }
+      .camera-dock { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr) auto; gap: 8px; }
+      .game-footer { font-size: 8px; }
+    }
+    @media (max-width: 420px) {
+      .camera-dock { grid-template-columns: minmax(0, 1fr) auto; }
+      .camera-view { grid-column: 1 / -1; }
+      .camera-info { grid-column: 1; }
+      .camera-close { grid-column: 2; grid-row: 2; }
+    }
+    @media (max-width: 620px) {
+      .camera-dock.is-maximized .camera-info { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); width: min(210px, calc(100vw - 172px)); padding: 10px 12px; }
+      .camera-dock.is-maximized .video-look { right: 10px; bottom: max(12px, env(safe-area-inset-bottom)); }
+      .camera-dock.is-maximized .video-look-model { width: 90px; height: 120px; }
+      .camera-dock.is-maximized .camera-reaction { top: max(10%, calc(env(safe-area-inset-top) + 58px)); gap: 8px; padding: 9px 15px 9px 10px; }
+      .camera-dock.is-maximized .camera-reaction-emoji { font-size: 30px; }
+      .camera-dock.is-maximized .camera-reaction-copy strong { font-size: 12px; }
+      .camera-dock.is-maximized .camera-reaction-copy small { font-size: 9px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="../../index.html" aria-label="返回互动实验室">
+        <span class="brand-mark" aria-hidden="true">搭</span>
+        <span><strong>风格试衣间</strong><small>STYLE STUDIO · 003</small></span>
+      </a>
+      <div class="topbar-actions">
+        <a class="lab-link" href="../../index.html">互动实验室 ↗</a>
+        <button class="camera-toggle" id="camera-toggle" type="button" aria-expanded="false">开启手势模式</button>
+      </div>
+    </header>
 
-<h1>手势控制</h1>
-<p class="subtitle">MediaPipe Hands · 隔空互动</p>
-<p class="hint">
-  把手放在镜头前试试手势：<em>OK 确认</em>，<em>拳头暂停</em>，<em>左右挥手切换图片</em>。<br/>手和背景要有明显色差。
-</p>
+    <main>
+      <section class="intro" aria-labelledby="game-title">
+        <div>
+          <p class="eyebrow"><i aria-hidden="true"></i> MIX & MATCH · 60 SECOND CHALLENGE</p>
+          <h1 id="game-title">为每个年纪，搭出好风格。</h1>
+          <p class="intro-copy">根据年龄阶段、日常 / 户外 / 正式场景，以及炎热 / 阴雨 / 寒冷天气，为男性或女性挑选合适的一身。搭配上装、下装、鞋履和配饰，看看 60 秒能拿下多少风格分。</p>
+        </div>
+        <div class="scoreboard" aria-label="本局游戏数据">
+          <div class="stat"><span>本局得分</span><strong id="score-display">000</strong></div>
+          <div class="stat timer" id="timer-box"><span>剩余时间</span><strong id="timer-display">01:00</strong></div>
+          <div class="stat"><span>最佳纪录</span><strong id="best-display">000</strong></div>
+        </div>
+      </section>
 
-<div class="cam-wrap" id="camWrap">
-  <video id="video" playsinline muted></video>
-  <canvas id="overlay"></canvas>
-  <div class="gesture-hud" id="gestureHud"><span class="dot dot-idle" id="gestureDot"></span><span id="gestureLabel">Idle</span></div>
-  <div class="toast" id="toast"></div>
-  <div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner" id="spinner"></div>
-    <p class="load-text" id="loadText">请求摄像头…</p>
+      <div class="game-grid">
+        <aside class="profile-panel" aria-label="选择穿搭对象">
+          <div class="profile-heading">
+            <div><p class="section-kicker">YOUR STYLE BRIEF</p><h2 class="panel-title">穿搭任务</h2></div>
+            <span class="round-pill">造型 <b id="round-display">01</b></span>
+          </div>
+          <label class="field-label" id="age-label">年龄阶段</label>
+          <div class="age-list" id="age-options" role="group" aria-labelledby="age-label"></div>
+          <label class="field-label" id="gender-label">搭配对象</label>
+          <div class="gender-list" id="gender-options" role="group" aria-labelledby="gender-label"></div>
+          <div class="mission-card">
+            <span>搭配主题 · 可随时切换</span>
+            <strong id="mission-title">日常 · 炎热</strong>
+            <p id="mission-note"></p>
+            <div class="context-selects">
+              <div class="context-select"><label for="occasion-select">穿着场合</label><select id="occasion-select"></select></div>
+              <div class="context-select"><label for="weather-select">天气情况</label><select id="weather-select"></select></div>
+            </div>
+          </div>
+          <div class="combo">
+            <div class="combo-head"><span>连续命中 · 连击加分</span><strong id="combo-display">× 0</strong></div>
+            <div class="combo-track"><i id="combo-fill"></i></div>
+          </div>
+          <div class="game-controls">
+            <button class="plain-button" id="pause-game" type="button">暂停挑战</button>
+            <button class="plain-button" id="restart-game" type="button">重新开始</button>
+          </div>
+        </aside>
+
+        <section class="fitting-panel" aria-label="穿搭试衣镜">
+          <div class="fitting-head">
+            <div><p class="section-kicker">THE FITTING MIRROR</p><h2 class="panel-title">试衣镜</h2></div>
+            <span class="live-status is-playing" id="game-status"><i></i><span>挑战进行中</span></span>
+          </div>
+          <div class="try-on">
+            <span class="hanger">TODAY'S LOOK</span>
+            <svg id="avatar-model" class="model-figure" viewBox="0 0 260 350" role="img" aria-label="当前穿搭模型"></svg>
+            <div class="preview-caption"><span id="preview-profile">青年 · 女性</span><span id="preview-progress">尚未搭配</span></div>
+          </div>
+          <div class="equipped">
+            <div class="equipped-heading"><span>本套已搭配</span><span id="equipped-count">0 / 4</span></div>
+            <div class="equipped-list" id="equipped-items"></div>
+          </div>
+        </section>
+
+        <section class="wardrobe-panel" aria-label="挑选服饰">
+          <div class="wardrobe-heading">
+            <div><p class="section-kicker">THE WARDROBE</p><h2 class="panel-title" id="wardrobe-title">挑选上装</h2></div>
+            <span class="piece-count" id="piece-count">01 / 04</span>
+          </div>
+          <div class="stepper" id="piece-progress" aria-label="穿搭进度"></div>
+          <p class="wardrobe-hint" id="wardrobe-hint">选一件适合本轮对象与场景的单品。</p>
+          <div class="wardrobe-options" id="wardrobe-options" role="group" aria-label="单品选项"></div>
+          <div class="wardrobe-footer">
+            <span class="keyboard-hint"><kbd>←</kbd><kbd>→</kbd> 选择<br><kbd>Enter</kbd> 确认</span>
+            <button class="primary-button" id="confirm-piece" type="button">确认这件 <span aria-hidden="true">→</span></button>
+          </div>
+        </section>
+      </div>
+
+      <section class="camera-dock" id="camera-dock" hidden aria-label="手势识别摄像头">
+        <div class="camera-view" id="camera-view">
+          <video id="camera-video" playsinline muted></video>
+          <canvas id="hand-canvas"></canvas>
+          <span id="camera-placeholder">等待摄像头画面…</span>
+          <div class="camera-reaction" id="camera-reaction" role="status" aria-live="polite" aria-atomic="true">
+            <span class="camera-reaction-emoji" id="camera-reaction-emoji" aria-hidden="true">🤩</span>
+            <span class="camera-reaction-copy"><strong id="camera-reaction-title">好有风格！</strong><small id="camera-reaction-note">发现一件适合你的单品</small></span>
+          </div>
+          <div class="video-look">
+            <span class="video-look-label" id="video-look-step">实时试穿 · 01 / 04</span>
+            <svg class="video-look-model" id="video-look-model" viewBox="0 0 260 350"></svg>
+            <span class="video-look-choice" id="video-look-choice">正在挑选上装</span>
+          </div>
+        </div>
+        <div class="camera-info">
+          <span class="camera-status" id="camera-status"><i></i><span>摄像头未开启</span></span>
+          <strong id="gesture-label">准备就绪</strong>
+          <p id="camera-guidance">食指左滑换上一件，右滑换下一件；OK 接受并进入下一类，握拳暂停或继续。</p>
+          <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true">笑声音效：开</button>
+        </div>
+        <button class="camera-close" id="camera-close" type="button" aria-label="关闭摄像头">×</button>
+      </section>
+      <footer class="game-footer"><span>手势可选；也能用鼠标、触屏或键盘完成挑战。</span><span>摄像头仅在你开启手势模式后使用。</span></footer>
+    </main>
   </div>
-  <div class="error-box" id="errorBox">
-    <p id="errorMsg">无法访问摄像头，请检查权限设置后重试。</p>
-    <button class="retry-btn" id="retryBtn">重试</button>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="gesture-cursor" id="gesture-cursor" aria-hidden="true"></div>
+  <div class="gesture-badge" id="gesture-badge" aria-hidden="true"></div>
+  <div class="result-overlay" id="result-overlay" hidden>
+    <section class="result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <p class="eyebrow" style="justify-content:center"><i aria-hidden="true"></i> CHALLENGE COMPLETE</p>
+      <h2 id="result-title">搭配时间到！</h2>
+      <div class="result-score"><span id="final-score">000</span><small>STYLE POINTS</small></div>
+      <p class="result-copy" id="result-copy"></p>
+      <div class="result-actions">
+        <button class="plain-button" id="result-close" type="button">查看搭配</button>
+        <button class="primary-button" id="play-again" type="button">再玩一局 ↻</button>
+      </div>
+    </section>
   </div>
-</div>
 
-<section class="gallery">
-  <p class="gallery-label">画廊 · 挥手切换</p>
-  <div class="gallery-grid" id="galleryGrid"></div>
-</section>
+  <script>
+    (function () {
+      'use strict';
 
-<footer>纯前端本地运行，不上云</footer>
+      const categories = [
+        { id: 'top', label: '上装', icon: '👕', title: '挑选上装', hint: '想想什么上装最适合这段年龄与今日场景。' },
+        { id: 'bottom', label: '下装', icon: '👖', title: '挑选下装', hint: '舒适、活动方便，也别忘了整体风格。' },
+        { id: 'shoes', label: '鞋履', icon: '👟', title: '挑选鞋履', hint: '选一双适合场景、走起来也舒服的鞋。' },
+        { id: 'accessory', label: '配饰', icon: '🎒', title: '挑选配饰', hint: '用一件实用的小配饰完成本轮造型。' }
+      ];
+      const occasions = [
+        { id: 'daily', label: '日常', note: '舒适百搭、方便活动，适合全天穿着。' },
+        { id: 'outdoor', label: '户外', note: '重视耐磨、轻便和防护细节，应对路况与天气变化。' },
+        { id: 'formal', label: '正式', note: '选择简洁挺括的版型、质感面料和协调配色。' }
+      ];
+      const weathers = [
+        { id: 'hot', label: '炎热', note: '优先轻薄透气、浅色面料，搭配短袖与清爽鞋款。' },
+        { id: 'rainy', label: '阴雨天', note: '加入防水外层、密封线条和防滑鞋底，配雨具更安心。' },
+        { id: 'cold', label: '寒冷', note: '增加厚外套、绗缝与毛绒保暖细节，注意手脚保暖。' }
+      ];
+      const colors = [
+        { name: '云朵白', hex: '#f2eee5', mood: 'light' },
+        { name: '雾霾蓝', hex: '#7c99aa', mood: 'cool' },
+        { name: '鼠尾草绿', hex: '#87977b', mood: 'nature' },
+        { name: '海军蓝', hex: '#354d68', mood: 'cool' },
+        { name: '焦糖棕', hex: '#a96f4c', mood: 'warm' },
+        { name: '樱桃红', hex: '#b65356', mood: 'bright' },
+        { name: '薰衣草紫', hex: '#a18aaf', mood: 'bright' },
+        { name: '石墨灰', hex: '#53565a', mood: 'dark' },
+        { name: '奶油黄', hex: '#e6cc82', mood: 'bright' },
+        { name: '森林绿', hex: '#405b4d', mood: 'nature' },
+        { name: '燕麦米', hex: '#c9b99d', mood: 'warm' },
+        { name: '珊瑚橘', hex: '#d88968', mood: 'bright' },
+        { name: '午夜黑', hex: '#292b2e', mood: 'dark' },
+        { name: '薄荷青', hex: '#9bc9ba', mood: 'nature' },
+        { name: '莓果紫', hex: '#744c68', mood: 'bright' },
+        { name: '雾粉色', hex: '#d5a8a3', mood: 'warm' },
+        { name: '沙漠卡其', hex: '#b9a47e', mood: 'warm' },
+        { name: '冰川蓝', hex: '#b8d2dc', mood: 'light' }
+      ];
+      const wardrobe = {
+        top: [
+          { name: '纯棉短袖 T 恤', icon: '👕', kind: 'tee', fabric: 'cotton', occasions: ['daily', 'campus', 'sport', 'outdoor', 'home'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '条纹休闲衬衫', icon: '👔', kind: 'shirt', fabric: 'poplin', pattern: 'stripe', occasions: ['daily', 'campus', 'commute', 'party'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '轻柔针织上衣', icon: '🧶', kind: 'knit', fabric: 'knit', occasions: ['daily', 'campus', 'commute', 'home', 'party'], weathers: ['cloudy', 'cold', 'snowy'] },
+          { name: '连帽卫衣', icon: '🧥', kind: 'hoodie', fabric: 'fleece', occasions: ['daily', 'campus', 'sport', 'outdoor', 'home'], weathers: ['cloudy', 'cold', 'snowy'] },
+          { name: '轻量防风夹克', icon: '🧥', kind: 'jacket', fabric: 'nylon', occasions: ['daily', 'commute', 'sport', 'outdoor'], weathers: ['cloudy', 'rainy', 'cold'] },
+          { name: '防水连帽雨衣', icon: '🌧️', kind: 'raincoat', fabric: 'waterproof', occasions: ['daily', 'campus', 'commute', 'outdoor'], weathers: ['rainy', 'cloudy'] },
+          { name: '保暖羽绒外套', icon: '🧥', kind: 'coat', fabric: 'down', occasions: ['daily', 'commute', 'outdoor'], weathers: ['cold', 'snowy'] },
+          { name: '轻盈运动速干衣', icon: '🏃', kind: 'sport', fabric: 'mesh', occasions: ['sport', 'outdoor'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '优雅针织上衣', icon: '🧶', kind: 'blouse', fabric: 'knit', genders: ['female'], occasions: ['commute', 'party', 'formal'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '挺括西装外套', icon: '🤵', kind: 'blazer', fabric: 'twill', occasions: ['commute', 'formal', 'party'], weathers: ['cloudy', 'cold'] },
+          { name: '亚麻短袖衬衫', icon: '👔', kind: 'linen', fabric: 'linen', occasions: ['daily', 'campus', 'outdoor', 'party'], weathers: ['hot', 'sunny'] },
+          { name: '防泼水冲锋外套', icon: '🌧️', kind: 'shell', fabric: 'waterproof', occasions: ['outdoor', 'sport'], weathers: ['rainy', 'cloudy', 'cold'] },
+          { name: '羊毛翻领大衣', icon: '🧥', kind: 'woolcoat', fabric: 'wool', occasions: ['daily', 'commute', 'formal', 'party'], weathers: ['cold', 'snowy'] }
+        ],
+        bottom: [
+          { name: '直筒牛仔裤', icon: '👖', kind: 'jeans', occasions: ['daily', 'campus', 'commute', 'party', 'outdoor'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '垂感休闲长裤', icon: '👖', kind: 'trousers', occasions: ['daily', 'commute', 'formal', 'party'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '弹力运动长裤', icon: '🏃', kind: 'joggers', occasions: ['daily', 'sport', 'outdoor', 'home'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '清爽休闲短裤', icon: '🩳', kind: 'shorts', occasions: ['daily', 'campus', 'sport', 'outdoor', 'home'], weathers: ['sunny', 'hot'] },
+          { name: '轻柔百褶半身裙', icon: '👗', kind: 'skirt', genders: ['female'], occasions: ['daily', 'campus', 'commute', 'party'], weathers: ['sunny', 'cloudy', 'hot'] },
+          { name: '保暖加绒长裤', icon: '👖', kind: 'warm', occasions: ['daily', 'commute', 'outdoor'], weathers: ['cold', 'snowy'] },
+          { name: '防水户外长裤', icon: '🥾', kind: 'waterproof', occasions: ['outdoor', 'sport'], weathers: ['rainy', 'snowy', 'cold'] },
+          { name: '优雅垂感长裙', icon: '👗', kind: 'longskirt', genders: ['female'], occasions: ['commute', 'formal', 'party'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '轻薄亚麻九分裤', icon: '👖', kind: 'linenpants', fabric: 'linen', occasions: ['daily', 'commute', 'formal'], weathers: ['hot', 'sunny'] },
+          { name: '防泼水机能工装裤', icon: '🥾', kind: 'cargo', fabric: 'waterproof', occasions: ['daily', 'outdoor', 'sport'], weathers: ['rainy', 'cloudy', 'cold'] },
+          { name: '保暖羊毛直筒裙', icon: '👗', kind: 'woolskirt', fabric: 'wool', genders: ['female'], occasions: ['daily', 'commute', 'formal'], weathers: ['cold', 'snowy'] },
+          { name: '利落西装锥形裤', icon: '👖', kind: 'suitpants', fabric: 'twill', occasions: ['commute', 'formal', 'party'], weathers: ['hot', 'sunny', 'cloudy'] },
+          { name: '防风户外束脚裤', icon: '🥾', kind: 'windpants', fabric: 'nylon', occasions: ['outdoor', 'sport'], weathers: ['rainy', 'cold', 'cloudy'] }
+        ],
+        shoes: [
+          { name: '轻量复古运动鞋', icon: '👟', kind: 'sneakers', occasions: ['daily', 'campus', 'sport', 'outdoor'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '简约皮革乐福鞋', icon: '👞', kind: 'loafers', occasions: ['daily', 'commute', 'formal', 'party'], weathers: ['sunny', 'cloudy'] },
+          { name: '柔软舒适平底鞋', icon: '🥿', kind: 'flats', genders: ['female'], occasions: ['daily', 'campus', 'commute', 'party'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '稳固防滑短靴', icon: '🥾', kind: 'boots', occasions: ['daily', 'commute', 'outdoor', 'party'], weathers: ['cloudy', 'cold', 'snowy'] },
+          { name: '轻便透气凉鞋', icon: '🩴', kind: 'sandals', occasions: ['daily', 'outdoor', 'home'], weathers: ['sunny', 'hot'] },
+          { name: '防水雨靴', icon: '🥾', kind: 'rainboots', occasions: ['daily', 'campus', 'outdoor'], weathers: ['rainy', 'snowy'] },
+          { name: '保暖雪地靴', icon: '🥾', kind: 'snowboots', occasions: ['daily', 'outdoor'], weathers: ['cold', 'snowy'] },
+          { name: '利落低跟通勤鞋', icon: '👠', kind: 'heels', genders: ['female'], occasions: ['commute', 'formal', 'party'], weathers: ['sunny', 'cloudy'] },
+          { name: '轻盈亚麻编织鞋', icon: '🥿', kind: 'espadrilles', occasions: ['daily', 'outdoor', 'party'], weathers: ['hot', 'sunny'] },
+          { name: '防水防滑徒步鞋', icon: '🥾', kind: 'hiking', fabric: 'waterproof', occasions: ['outdoor', 'sport'], weathers: ['rainy', 'cold', 'snowy'] },
+          { name: '绒里保暖短靴', icon: '🥾', kind: 'fleeceboots', fabric: 'fleece', occasions: ['daily', 'outdoor', 'formal'], weathers: ['cold', 'snowy'] },
+          { name: '正式系带牛津鞋', icon: '👞', kind: 'oxfords', occasions: ['formal', 'commute'], weathers: ['hot', 'rainy', 'cold', 'sunny'] },
+          { name: '防水高帮运动鞋', icon: '🥾', kind: 'highhikers', fabric: 'waterproof', occasions: ['daily', 'outdoor'], weathers: ['rainy', 'cloudy', 'cold'] }
+        ],
+        accessory: [
+          { name: '轻便双肩背包', icon: '🎒', kind: 'backpack', occasions: ['daily', 'campus', 'sport', 'outdoor'], weathers: ['sunny', 'hot', 'cloudy'] },
+          { name: '简约通勤托特包', icon: '👜', kind: 'tote', genders: ['female'], occasions: ['daily', 'commute', 'party'], weathers: ['sunny', 'cloudy'] },
+          { name: '经典棒球帽', icon: '🧢', kind: 'cap', occasions: ['daily', 'campus', 'sport', 'outdoor'], weathers: ['sunny', 'hot'] },
+          { name: '柔软保暖围巾', icon: '🧣', kind: 'scarf', occasions: ['daily', 'commute', 'outdoor', 'party'], weathers: ['cold', 'snowy', 'cloudy'] },
+          { name: '防风保暖手套', icon: '🧤', kind: 'gloves', occasions: ['daily', 'outdoor'], weathers: ['cold', 'snowy'] },
+          { name: '轻巧折叠雨伞', icon: '☂️', kind: 'umbrella', occasions: ['daily', 'campus', 'commute', 'outdoor'], weathers: ['rainy'] },
+          { name: '质感皮革腰带', icon: '⌚', kind: 'belt', occasions: ['daily', 'commute', 'formal', 'party'], weathers: ['sunny', 'cloudy', 'cold'] },
+          { name: '精巧简约腕表', icon: '⌚', kind: 'watch', occasions: ['commute', 'formal', 'party', 'daily'], weathers: ['sunny', 'cloudy', 'cold', 'hot'] },
+          { name: '小巧斜挎随身包', icon: '👜', kind: 'crossbody', occasions: ['daily', 'campus', 'outdoor', 'party'], weathers: ['sunny', 'cloudy', 'hot'] },
+          { name: '柔软针织毛帽', icon: '🧶', kind: 'beanie', fabric: 'knit', occasions: ['daily', 'outdoor', 'campus'], weathers: ['cold', 'snowy'] },
+          { name: '轻薄遮阳渔夫帽', icon: '🧢', kind: 'sunhat', occasions: ['daily', 'outdoor'], weathers: ['hot', 'sunny'] },
+          { name: '防水斜挎小包', icon: '👜', kind: 'drybag', fabric: 'waterproof', occasions: ['daily', 'outdoor'], weathers: ['rainy', 'cloudy'] },
+          { name: '保暖毛绒耳罩', icon: '🧤', kind: 'earmuffs', fabric: 'fleece', occasions: ['daily', 'outdoor'], weathers: ['cold', 'snowy'] },
+          { name: '丝巾领结点缀', icon: '🧣', kind: 'silkscarf', fabric: 'silk', occasions: ['daily', 'formal', 'party'], weathers: ['hot', 'rainy', 'cold'] },
+          { name: '简约胸针', icon: '✨', kind: 'brooch', occasions: ['formal', 'party'], weathers: ['hot', 'rainy', 'cold'] },
+          { name: '轻量防晒袖套', icon: '🧤', kind: 'sleeves', occasions: ['daily', 'outdoor', 'sport'], weathers: ['hot', 'sunny'] }
+        ]
+      };
+      const fabricLabels = {
+        cotton: '亲肤棉感',
+        poplin: '挺括衬布',
+        knit: '柔软针织',
+        fleece: '绒感保暖',
+        nylon: '轻量防风',
+        waterproof: '防水涂层',
+        down: '蓬松填充',
+        mesh: '透气网眼',
+        twill: '细密斜纹',
+        linen: '清爽亚麻',
+        wool: '羊毛呢料',
+        silk: '轻柔丝感',
+        leather: '柔韧皮革',
+        canvas: '耐磨帆布'
+      };
+      const ageGroups = [
+        { id: 'child', label: '儿童', range: '6–12 岁', note: '优先柔软亲肤、方便活动的版型。' },
+        { id: 'teen', label: '青少年', range: '13–17 岁', note: '自在有型、方便活动，也能表达自己的风格。' },
+        { id: 'young', label: '青年', range: '18–35 岁', note: '在个人风格与日常实穿之间找到平衡。' },
+        { id: 'middle', label: '中年', range: '36–54 岁', note: '面料舒适、版型利落，兼顾质感与实穿。' },
+        { id: 'senior', label: '乐龄', range: '55+ 岁', note: '穿脱方便、柔软舒适，鞋履注意防滑稳当。' }
+      ];
+      const ageById = Object.fromEntries(ageGroups.map(function (age) { return [age.id, age]; }));
+      const genders = [
+        { id: 'male', label: '男性' },
+        { id: 'female', label: '女性' }
+      ];
+      const state = {
+        age: 'young', gender: 'female', round: 1, score: 0, best: 0, seconds: 60,
+        categoryIndex: 0, selectedIndex: 0, choices: [], picks: [], combo: 0,
+        occasion: 'daily', weather: 'hot',
+        running: true, paused: false, finished: false
+      };
+      const ui = {
+        ageOptions: document.querySelector('#age-options'),
+        genderOptions: document.querySelector('#gender-options'),
+        missionTitle: document.querySelector('#mission-title'),
+        missionNote: document.querySelector('#mission-note'),
+        occasionSelect: document.querySelector('#occasion-select'),
+        weatherSelect: document.querySelector('#weather-select'),
+        round: document.querySelector('#round-display'),
+        score: document.querySelector('#score-display'),
+        timer: document.querySelector('#timer-display'),
+        timerBox: document.querySelector('#timer-box'),
+        best: document.querySelector('#best-display'),
+        combo: document.querySelector('#combo-display'),
+        comboFill: document.querySelector('#combo-fill'),
+        status: document.querySelector('#game-status'),
+        previewProfile: document.querySelector('#preview-profile'),
+        previewProgress: document.querySelector('#preview-progress'),
+        avatarModel: document.querySelector('#avatar-model'),
+        videoLookModel: document.querySelector('#video-look-model'),
+        videoLookStep: document.querySelector('#video-look-step'),
+        videoLookChoice: document.querySelector('#video-look-choice'),
+        cameraReaction: document.querySelector('#camera-reaction'),
+        cameraReactionEmoji: document.querySelector('#camera-reaction-emoji'),
+        cameraReactionTitle: document.querySelector('#camera-reaction-title'),
+        cameraReactionNote: document.querySelector('#camera-reaction-note'),
+        equipped: document.querySelector('#equipped-items'),
+        equippedCount: document.querySelector('#equipped-count'),
+        wardrobeTitle: document.querySelector('#wardrobe-title'),
+        pieceCount: document.querySelector('#piece-count'),
+        progress: document.querySelector('#piece-progress'),
+        hint: document.querySelector('#wardrobe-hint'),
+        options: document.querySelector('#wardrobe-options'),
+        confirm: document.querySelector('#confirm-piece'),
+        cameraToggle: document.querySelector('#camera-toggle'),
+        soundToggle: document.querySelector('#sound-toggle'),
+        cameraDock: document.querySelector('#camera-dock'),
+        cameraView: document.querySelector('#camera-view'),
+        cameraVideo: document.querySelector('#camera-video'),
+        cameraCanvas: document.querySelector('#hand-canvas'),
+        cameraPlaceholder: document.querySelector('#camera-placeholder'),
+        cameraStatus: document.querySelector('#camera-status'),
+        cameraGuidance: document.querySelector('#camera-guidance'),
+        gestureLabel: document.querySelector('#gesture-label'),
+        cameraClose: document.querySelector('#camera-close'),
+        toast: document.querySelector('#toast'),
+        cursor: document.querySelector('#gesture-cursor'),
+        gestureBadge: document.querySelector('#gesture-badge'),
+        result: document.querySelector('#result-overlay'),
+        finalScore: document.querySelector('#final-score'),
+        resultCopy: document.querySelector('#result-copy'),
+        resultClose: document.querySelector('#result-close'),
+        playAgain: document.querySelector('#play-again'),
+        pauseGame: document.querySelector('#pause-game'),
+        restartGame: document.querySelector('#restart-game')
+      };
 
-<script>
-(function(){
-"use strict";
-try{
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cameraContext = ui.cameraCanvas.getContext('2d');
+      const toastContext = { timer: 0 };
+      const fingerConnections = [
+        [0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8],
+        [0, 9], [9, 10], [10, 11], [11, 12], [0, 13], [13, 14], [14, 15],
+        [15, 16], [0, 17], [17, 18], [18, 19], [19, 20], [5, 9], [9, 13], [13, 17]
+      ];
+      const fingerColors = ['#f87171', '#fb923c', '#fbbf24', '#4ade80', '#60a5fa', '#c084fc'];
+      let timerHandle = 0;
+      let reactionTimer = 0;
+      let audioContext = null;
+      let soundEnabled = true;
+      let lastLaughAt = 0;
+      let cameraStream = null;
+      let handsModel = null;
+      let animationFrame = 0;
+      let lastFrameAt = 0;
+      let framePending = false;
+      let swipeAnchorX = null;
+      let lastSwipeAt = 0;
+      let activeGesture = 'Idle';
+      let gestureSince = 0;
+      let actedForGesture = false;
 
-/* ── refs ── */
-const video=document.getElementById('video');
-const overlay=document.getElementById('overlay');
-const ctx=overlay.getContext('2d');
-const loadOverlay=document.getElementById('loadingOverlay');
-const loadText=document.getElementById('loadText');
-const spinner=document.getElementById('spinner');
-const errorBox=document.getElementById('errorBox');
-const errorMsg=document.getElementById('errorMsg');
-const retryBtn=document.getElementById('retryBtn');
-const gestureLabel=document.getElementById('gestureLabel');
-const gestureDot=document.getElementById('gestureDot');
-const toast=document.getElementById('toast');
-const galleryGrid=document.getElementById('galleryGrid');
-
-/* ── constants ── */
-const WAVE_THRESHOLD=120;   // px displacement for wave
-const WAVE_DEBOUNCE=900;    // ms between wave triggers
-const OK_DIST=50;           // px thumb-index tip distance threshold
-const FIST_THRESHOLD=55;    // avg finger curl threshold
-const PAUSE_MS=300;         // fist pause duration
-const TOAST_DUR=1200;
-
-/* ── state ── */
-let currentImg=0;
-let confirmedImg=-1;
-let lastWaveTime=0;
-let waveAnchorX=null;
-let isPaused=false;
-let pauseTimer=null;
-let toastTimer=null;
-let prevGesture='Idle';
-const reducedMotion=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-
-/* ── finger name map ── */
-const FINGER_NAMES=['手腕','拇指','食指','中指','无名指','小指'];
-const FINGER_CONNECTIONS=[
-  [0,1],[1,2],[2,3],[3,4],       // thumb
-  [0,5],[5,6],[6,7],[7,8],       // index
-  [0,9],[9,10],[10,11],[11,12],  // middle
-  [0,13],[13,14],[14,15],[15,16],// ring
-  [0,17],[17,18],[18,19],[19,20],// pinky
-  [5,9],[9,13],[13,17]           // palm
-];
-const FINGER_COLORS=['#f87171','#fb923c','#fbbf24','#4ade80','#60a5fa','#c084fc'];
-
-/* ── gallery images ── */
-const IMG_GRADIENTS=[
-  'linear-gradient(135deg,#667eea,#764ba2)',
-  'linear-gradient(135deg,#f093fb,#f5576c)',
-  'linear-gradient(135deg,#4facfe,#00f2fe)',
-  'linear-gradient(135deg,#43e97b,#38f9d7)',
-  'linear-gradient(135deg,#fa709a,#fee140)',
-  'linear-gradient(135deg,#a18cd1,#fbc2eb)'
-];
-const IMG_URLS=[
-  'https://picsum.photos/seed/gesture1/640/480',
-  'https://picsum.photos/seed/gesture2/640/480',
-  'https://picsum.photos/seed/gesture3/640/480',
-  'https://picsum.photos/seed/gesture4/640/480',
-  'https://picsum.photos/seed/gesture5/640/480',
-  'https://picsum.photos/seed/gesture6/640/480'
-];
-
-/* build gallery */
-IMG_URLS.forEach(function(url,i){
-  const div=document.createElement('div');
-  div.className='g-item'+(i===0?' active':'');
-  div.dataset.idx=i;
-  div.style.background=IMG_GRADIENTS[i];
-  const img=document.createElement('img');
-  img.src=url;img.alt='图片'+(i+1);img.loading='lazy';
-  img.onerror=function(){this.style.display='none'};
-  const idx=document.createElement('span');
-  idx.className='g-idx';idx.textContent=i+1;
-  div.appendChild(img);div.appendChild(idx);
-  div.addEventListener('click',function(){selectImage(i)});
-  galleryGrid.appendChild(div);
-});
-
-function selectImage(i){
-  currentImg=i;
-  confirmedImg=-1;
-  updateGalleryUI();
-}
-function updateGalleryUI(){
-  const items=galleryGrid.querySelectorAll('.g-item');
-  items.forEach(function(el,i){
-    el.classList.remove('active','confirmed');
-    if(i===currentImg) el.classList.add('active');
-    if(i===confirmedImg) el.classList.add('confirmed');
-  });
-}
-
-/* ── toast ── */
-function showToast(msg,color){
-  toast.textContent=msg;
-  toast.style.color=color||'#fff';
-  toast.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(function(){toast.classList.remove('show')},TOAST_DUR);
-}
-
-/* ── gesture HUD ── */
-function updateHUD(name){
-  if(name===prevGesture) return;
-  prevGesture=name;
-  gestureLabel.textContent=name;
-  gestureDot.className='dot dot-'+name.toLowerCase();
-}
-
-/* ── gesture detection ── */
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-
-function fingerCurled(lm,mcp,pip,wrist){
-  // finger is curled if tip is closer to wrist than PIP
-  var tipIdx={4:[4],8:[8],12:[12],16:[16],20:[20]};
-  return 0; // placeholder
-}
-
-function detectGesture(lm,W,H){
-  // lm = 21 landmarks, normalised 0-1
-  var px=lm.map(function(l){return{x:l.x*W,y:l.y*H}});
-
-  // OK: thumb tip (4) close to index tip (8)
-  var okDist=dist(px[4],px[8]);
-  if(okDist<OK_DIST){return{name:'OK',data:{okDist:okDist}}}
-
-  // Fist: all fingertips close to their MCPs
-  var curls=[];
-  // thumb: tip(4) close to base(2)
-  curls.push(dist(px[4],px[2])<35);
-  // index: tip(8) close to mcp(5)
-  curls.push(dist(px[8],px[5])<50);
-  // middle: tip(12) close to mcp(9)
-  curls.push(dist(px[12],px[9])<50);
-  // ring: tip(16) close to mcp(13)
-  curls.push(dist(px[16],px[13])<50);
-  // pinky: tip(20) close to mcp(17)
-  curls.push(dist(px[20],px[17])<50);
-  var curledCount=curls.filter(Boolean).length;
-  if(curledCount>=4){return{name:'Fist',data:{curled:curledCount}}}
-
-  // Wave: palm center X movement
-  var palmCX=(px[0].x+px[9].x)/2;
-  if(waveAnchorX===null){
-    waveAnchorX=palmCX;
-    return{name:'Idle'};
-  }
-  var dx=palmCX-waveAnchorX;
-  if(Math.abs(dx)>WAVE_THRESHOLD){
-    var now=Date.now();
-    if(now-lastWaveTime>WAVE_DEBOUNCE){
-      lastWaveTime=now;
-      waveAnchorX=palmCX;
-      return{name:'Wave',data:{dir:dx>0?'right':'left'}};
-    }
-  }
-
-  return{name:'Idle'};
-}
-
-/* ── handle gesture ── */
-function handleGesture(result,W,H){
-  updateHUD(result.name);
-
-  if(isPaused && result.name!=='Fist') return;
-
-  switch(result.name){
-    case 'OK':
-      confirmedImg=currentImg;
-      updateGalleryUI();
-      showToast('✓ 已确认','#4ade80');
-      break;
-    case 'Fist':
-      isPaused=true;
-      showToast('⏸ 已暂停','#fbbf24');
-      clearTimeout(pauseTimer);
-      pauseTimer=setTimeout(function(){isPaused=false},PAUSE_MS);
-      break;
-    case 'Wave':
-      if(result.data.dir==='left'){
-        currentImg=(currentImg+1)%6;
-      }else{
-        currentImg=(currentImg-1+6)%6;
+      function showToast(message) {
+        ui.toast.textContent = message;
+        ui.toast.classList.add('is-visible');
+        window.clearTimeout(toastContext.timer);
+        toastContext.timer = window.setTimeout(function () {
+          ui.toast.classList.remove('is-visible');
+        }, 1550);
       }
-      confirmedImg=-1;
-      updateGalleryUI();
-      showToast('切换 → 图片'+(currentImg+1),'#6c63ff');
-      break;
-  }
-}
 
-/* ── draw hand landmarks ── */
-function drawHand(lm,W,H){
-  var px=lm.map(function(l){return{x:l.x*W,y:l.y*H,z:l.z}});
+      function ensureAudioContext() {
+        if (!soundEnabled) return false;
+        if (typeof window.AudioContext !== 'function') {
+          soundEnabled = false;
+          ui.soundToggle.setAttribute('aria-pressed', 'false');
+          ui.soundToggle.textContent = '笑声音效：不可用';
+          console.warn('当前浏览器不支持 Web Audio，笑声音效已关闭。');
+          return false;
+        }
+        if (!audioContext) audioContext = new window.AudioContext();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(function (error) {
+            console.warn('无法启用笑声音效：', error);
+          });
+        }
+        return true;
+      }
 
-  // connections
-  ctx.lineWidth=2;
-  FINGER_CONNECTIONS.forEach(function(c){
-    var fingerIdx=0;
-    if(c[0]>=1&&c[0]<=4||c[1]>=1&&c[1]<=4) fingerIdx=1;
-    else if(c[0]>=5&&c[0]<=8||c[1]>=5&&c[1]<=8) fingerIdx=2;
-    else if(c[0]>=9&&c[0]<=12||c[1]>=9&&c[1]<=12) fingerIdx=3;
-    else if(c[0]>=13&&c[0]<=16||c[1]>=13&&c[1]<=16) fingerIdx=4;
-    else if(c[0]>=17&&c[0]<=20||c[1]>=17&&c[1]<=20) fingerIdx=5;
+      function playLaugh() {
+        if (!soundEnabled || !audioContext || Date.now() - lastLaughAt < 900) return;
+        lastLaughAt = Date.now();
+        const notes = [560, 740, 620, 820];
+        const start = audioContext.currentTime + 0.015;
+        notes.forEach(function (frequency, index) {
+          const beganAt = start + index * 0.105;
+          const oscillator = audioContext.createOscillator();
+          const volume = audioContext.createGain();
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, beganAt);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.18, beganAt + 0.055);
+          volume.gain.setValueAtTime(0.0001, beganAt);
+          volume.gain.exponentialRampToValueAtTime(0.065, beganAt + 0.018);
+          volume.gain.exponentialRampToValueAtTime(0.0001, beganAt + 0.095);
+          oscillator.connect(volume);
+          volume.connect(audioContext.destination);
+          oscillator.start(beganAt);
+          oscillator.stop(beganAt + 0.1);
+        });
+      }
 
-    ctx.strokeStyle=FINGER_COLORS[fingerIdx];
-    ctx.beginPath();
-    ctx.moveTo(px[c[0]].x,px[c[0]].y);
-    ctx.lineTo(px[c[1]].x,px[c[1]].y);
-    ctx.stroke();
-  });
+      function showReaction(type) {
+        if (!cameraStream) return;
+        const reactions = {
+          happy: { emoji: '😄', title: '哈哈，太适合了！', note: '这件和整体造型很搭', laugh: true },
+          sad: { emoji: '🥺', title: '差一点点，再试试？', note: '换个颜色或款式看看', laugh: false },
+          excited: { emoji: '🤩', title: '新风格登场！', note: '左右滑动，看看下一件', laugh: false },
+          like: { emoji: '🥰', title: '这套我好喜欢！', note: '这个颜色和款式很适合你', laugh: true },
+          admire: { emoji: '✨', title: '搭得真有品味！', note: '这件单品选得很有眼光', laugh: false },
+          praise: { emoji: '🎉', title: '整套造型完成！', note: '你搭出了一身专属风格', laugh: false }
+        };
+        const reaction = reactions[type];
+        if (!reaction) return;
+        ui.cameraReactionEmoji.textContent = reaction.emoji;
+        ui.cameraReactionTitle.textContent = reaction.title;
+        ui.cameraReactionNote.textContent = reaction.note;
+        ui.cameraReaction.classList.remove('is-visible');
+        window.clearTimeout(reactionTimer);
+        void ui.cameraReaction.offsetWidth;
+        ui.cameraReaction.classList.add('is-visible');
+        reactionTimer = window.setTimeout(function () {
+          ui.cameraReaction.classList.remove('is-visible');
+        }, 1800);
+        if (reaction.laugh) playLaugh();
+      }
 
-  // points
-  px.forEach(function(p,i){
-    var fingerIdx=0;
-    if(i>=1&&i<=4) fingerIdx=1;
-    else if(i>=5&&i<=8) fingerIdx=2;
-    else if(i>=9&&i<=12) fingerIdx=3;
-    else if(i>=13&&i<=16) fingerIdx=4;
-    else if(i>=17&&i<=20) fingerIdx=5;
+      function updateStats() {
+        ui.score.textContent = String(state.score).padStart(3, '0');
+        ui.timer.textContent = String(Math.floor(state.seconds / 60)).padStart(2, '0') + ':' + String(state.seconds % 60).padStart(2, '0');
+        ui.timerBox.classList.toggle('is-urgent', state.seconds <= 10);
+        ui.best.textContent = String(state.best).padStart(3, '0');
+        ui.combo.textContent = '× ' + state.combo;
+        ui.comboFill.style.width = Math.min(100, state.combo * 20) + '%';
+        ui.round.textContent = String(state.round).padStart(2, '0');
+      }
 
-    ctx.fillStyle=FINGER_COLORS[fingerIdx];
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,i%4===0?5:3.5,0,Math.PI*2);
-    ctx.fill();
-  });
+      function renderProfiles() {
+        ui.ageOptions.innerHTML = ageGroups.map(function (age) {
+          return '<button class="age-button" type="button" data-age="' + age.id + '" aria-pressed="' + (age.id === state.age) + '"><strong>' + age.label + '</strong><small>' + age.range + '</small></button>';
+        }).join('');
+        ui.genderOptions.innerHTML = genders.map(function (gender) {
+          return '<button class="gender-button" type="button" data-gender="' + gender.id + '" aria-pressed="' + (gender.id === state.gender) + '">' + gender.label + '</button>';
+        }).join('');
+        ui.ageOptions.querySelectorAll('[data-age]').forEach(function (button) {
+          button.addEventListener('click', function () { changeProfile('age', button.dataset.age); });
+        });
+        ui.genderOptions.querySelectorAll('[data-gender]').forEach(function (button) {
+          button.addEventListener('click', function () { changeProfile('gender', button.dataset.gender); });
+        });
+      }
 
-  // finger labels on tips
-  ctx.font='bold 11px sans-serif';
-  ctx.textAlign='center';
-  var tips=[4,8,12,16,20];
-  tips.forEach(function(ti,i){
-    ctx.fillStyle='rgba(255,255,255,.85)';
-    ctx.fillText(FINGER_NAMES[i+1],px[ti].x,px[ti].y-10);
-  });
-}
+      function renderContextSelectors() {
+        ui.occasionSelect.innerHTML = occasions.map(function (occasion) {
+          return '<option value="' + occasion.id + '">' + occasion.label + '</option>';
+        }).join('');
+        ui.weatherSelect.innerHTML = weathers.map(function (weather) {
+          return '<option value="' + weather.id + '">' + weather.label + '</option>';
+        }).join('');
+        ui.occasionSelect.value = state.occasion;
+        ui.weatherSelect.value = state.weather;
+      }
 
-/* ── MediaPipe Hands ── */
-var hands;
-var camera;
+      function changeContext() {
+        if (state.finished) {
+          ui.occasionSelect.value = state.occasion;
+          ui.weatherSelect.value = state.weather;
+          return;
+        }
+        state.occasion = ui.occasionSelect.value;
+        state.weather = ui.weatherSelect.value;
+        state.selectedIndex = 0;
+        state.combo = 0;
+        state.choices = makeChoices(state.categoryIndex);
+        updateStats();
+        renderRound();
+        showToast('搭配主题已更新，已选服饰保留并同步调整天气与场景细节。');
+      }
 
-function setLoad(msg){
-  loadText.textContent=msg;
-}
-function hideLoading(){
-  loadOverlay.classList.add('hidden');
-}
-function showError(msg){
-  errorMsg.textContent=msg||'无法访问摄像头，请检查权限设置后重试。';
-  errorBox.classList.add('show');
-  loadOverlay.classList.add('hidden');
-}
-function hideError(){
-  errorBox.classList.remove('show');
-}
+      function changeProfile(key, value) {
+        if (state[key] === value || state.finished) return;
+        state[key] = value;
+        state.categoryIndex = 0;
+        state.selectedIndex = 0;
+        state.picks = [];
+        state.combo = 0;
+        state.choices = makeChoices(0);
+        renderProfiles();
+        renderRound();
+        showToast('穿搭对象已更新，来搭一身适合的新造型！');
+      }
 
-function onResults(results){
-  var W=overlay.width=video.videoWidth||640;
-  var H=overlay.height=video.videoHeight||480;
-  ctx.clearRect(0,0,W,H);
+      function shuffle(items) {
+        for (let index = items.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          const value = items[index];
+          items[index] = items[swapIndex];
+          items[swapIndex] = value;
+        }
+        return items;
+      }
 
-  if(results.multiHandLandmarks&&results.multiHandLandmarks.length){
-    results.multiHandLandmarks.forEach(function(lm){
-      drawHand(lm,W,H);
-      var gesture=detectGesture(lm,W,H);
-      handleGesture(gesture,W,H);
-    });
-  }else{
-    waveAnchorX=null;
-    updateHUD('Idle');
-  }
-}
+      function makeChoices(categoryIndex) {
+        const category = categories[categoryIndex];
+        const ageIndex = ageGroups.findIndex(function (age) { return age.id === state.age; });
+        const defaultFabric = { top: 'cotton', bottom: 'twill', shoes: 'leather', accessory: 'canvas' }[category.id];
+        const suitableColors = {
+          hot: ['light', 'cool'],
+          rainy: ['dark', 'cool', 'nature'],
+          cold: ['warm', 'dark', 'light']
+        };
+        const occasionAliases = {
+          daily: ['daily', 'campus', 'home'],
+          outdoor: ['outdoor', 'sport'],
+          formal: ['formal', 'commute', 'party']
+        };
+        const weatherAliases = {
+          hot: ['hot', 'sunny'],
+          rainy: ['rainy'],
+          cold: ['cold', 'snowy']
+        };
+        const candidates = wardrobe[category.id].filter(function (item) {
+          return !item.genders || item.genders.includes(state.gender);
+        }).flatMap(function (item) {
+          return colors.map(function (color) {
+            let score = 0;
+            const occasionMatch = occasionAliases[state.occasion].some(function (id) { return item.occasions.includes(id); });
+            const weatherMatch = weatherAliases[state.weather].some(function (id) { return item.weathers.includes(id); });
+            if (occasionMatch) score += 32;
+            if (weatherMatch) score += 36;
+            if (item.genders) score += 10;
+            if (state.occasion === 'formal' && ['blazer', 'blouse', 'longskirt', 'woolskirt', 'suitpants', 'loafers', 'heels', 'oxfords', 'watch', 'belt', 'brooch', 'silkscarf'].includes(item.kind)) score += 14;
+            if (state.occasion === 'outdoor' && ['shell', 'raincoat', 'jacket', 'cargo', 'waterproof', 'hiking', 'rainboots', 'backpack', 'drybag', 'cap'].includes(item.kind)) score += 14;
+            if (state.occasion === 'daily' && ['tee', 'shirt', 'knit', 'jeans', 'trousers', 'sneakers', 'crossbody', 'tote'].includes(item.kind)) score += 10;
+            if (state.weather === 'hot' && ['tee', 'sport', 'linen', 'shorts', 'skirt', 'sandals', 'espadrilles', 'sunhat', 'sleeves'].includes(item.kind)) score += 16;
+            if (state.weather === 'rainy' && ['raincoat', 'shell', 'jacket', 'waterproof', 'cargo', 'rainboots', 'hiking', 'drybag', 'umbrella'].includes(item.kind)) score += 18;
+            if (state.weather === 'cold' && ['knit', 'hoodie', 'coat', 'woolcoat', 'warm', 'woolskirt', 'boots', 'snowboots', 'fleeceboots', 'scarf', 'gloves', 'beanie', 'earmuffs'].includes(item.kind)) score += 18;
+            if (ageIndex === 0 && ['tee', 'sport', 'shorts', 'sneakers', 'backpack', 'cap'].includes(item.kind)) score += 14;
+            if (ageIndex === 1 && ['tee', 'shirt', 'hoodie', 'jeans', 'sneakers', 'backpack'].includes(item.kind)) score += 12;
+            if (ageIndex === 2 && ['shirt', 'trousers', 'jeans', 'loafers', 'tote', 'crossbody'].includes(item.kind)) score += 10;
+            if (ageIndex === 3 && ['shirt', 'knit', 'blazer', 'trousers', 'loafers', 'watch'].includes(item.kind)) score += 10;
+            if (ageIndex === 4 && ['knit', 'coat', 'warm', 'boots', 'snowboots'].includes(item.kind)) score += 12;
+            if (suitableColors[state.weather].includes(color.mood)) score += 10;
+            const fit = Math.max(30, Math.min(100, 35 + score));
+            const fitNote = weatherMatch && occasionMatch
+              ? occasions.find(function (occasion) { return occasion.id === state.occasion; }).label + ' · ' + weathers.find(function (weather) { return weather.id === state.weather; }).label + '适配'
+              : weatherMatch
+                ? '适合当前天气 · 可搭配不同场合'
+                : occasionMatch
+                  ? '适合当前场合 · 可叠穿应对天气'
+                  : '可通过叠穿细节适应环境';
+            return {
+              name: color.name + ' · ' + item.name,
+              styleName: item.name,
+              icon: item.icon,
+              kind: item.kind,
+              fabric: item.fabric || defaultFabric,
+              pattern: item.pattern || '',
+              color: color.hex,
+              colorName: color.name,
+              colorMood: color.mood,
+              fit: fit,
+              ageIndex: ageIndex,
+              score: score,
+              note: fitNote + ' · ' + fabricLabels[item.fabric || defaultFabric],
+              category: category.id,
+              ideal: occasionMatch && weatherMatch && (!item.genders || item.genders.includes(state.gender))
+            };
+          });
+        });
+        if (!candidates.length) {
+          throw new Error('当前场合与天气下没有可用单品：' + category.label);
+        }
+        const styleGroups = Object.values(candidates.reduce(function (groups, candidate) {
+          if (!groups[candidate.kind]) groups[candidate.kind] = { kind: candidate.kind, score: candidate.score, items: [] };
+          groups[candidate.kind].score = Math.max(groups[candidate.kind].score, candidate.score);
+          groups[candidate.kind].items.push(candidate);
+          return groups;
+        }, {})).sort(function (a, b) { return b.score - a.score; });
+        const primaryGroup = styleGroups[0];
+        const primaryItems = primaryGroup.items.slice().sort(function (a, b) { return b.score - a.score; });
+        const primary = shuffle(primaryItems.slice(0, Math.min(primaryItems.length, 4)))[0];
+        const colorAlternatives = shuffle(primaryGroup.items.filter(function (item) {
+          return item.color !== primary.color && item.score >= primary.score - 10;
+        })).slice(0, 1);
+        const styleAlternatives = shuffle(styleGroups.slice(1, 6)).map(function (group) {
+          const topItems = group.items.filter(function (item) { return item.score >= group.score - 10; });
+          return shuffle(topItems)[0];
+        }).slice(0, 4);
+        return [primary].concat(colorAlternatives, styleAlternatives);
+      }
 
-function initHands(){
-  return new Promise(function(resolve,reject){
-    try{
-      setLoad('下载模型…');
-      hands=new Hands({locateFile:function(file){
-        return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/'+file;
-      }});
-      hands.setOptions({
-        maxNumHands:1,
-        modelComplexity:1,
-        minDetectionConfidence:0.7,
-        minTrackingConfidence:0.6
+      function renderRound() {
+        const category = categories[state.categoryIndex];
+        const occasion = occasions.find(function (item) { return item.id === state.occasion; });
+        const weather = weathers.find(function (item) { return item.id === state.weather; });
+        ui.missionTitle.textContent = occasion.label + ' · ' + weather.label;
+        ui.missionNote.textContent = occasion.note + ' ' + weather.note + ' ' + ageById[state.age].note;
+        ui.occasionSelect.value = state.occasion;
+        ui.weatherSelect.value = state.weather;
+        ui.previewProfile.textContent = ageById[state.age].label + ' · ' + (state.gender === 'male' ? '男性' : '女性');
+        ui.wardrobeTitle.textContent = category.title;
+        ui.pieceCount.textContent = String(state.categoryIndex + 1).padStart(2, '0') + ' / 04';
+        ui.hint.textContent = category.hint;
+        ui.progress.innerHTML = categories.map(function (item, index) {
+          return '<span class="step-dot' + (index < state.categoryIndex ? ' is-done' : '') + (index === state.categoryIndex ? ' is-current' : '') + '"></span>';
+        }).join('');
+        ui.options.innerHTML = state.choices.map(function (choice, index) {
+          return '<button class="option-card" type="button" data-option="' + index + '" aria-pressed="' + (index === state.selectedIndex) + '"><span class="option-icon" aria-hidden="true">' + choice.icon + '</span><span class="option-copy"><strong><i class="option-color" style="--swatch:' + choice.color + '"></i>' + choice.name + '</strong><small>' + choice.note + '</small></span><span class="option-mark" aria-hidden="true">' + (index === state.selectedIndex ? '✓' : '＋') + '</span></button>';
+        }).join('');
+        ui.options.querySelectorAll('[data-option]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            state.selectedIndex = Number(button.dataset.option);
+            renderRound();
+          });
+        });
+        ui.confirm.disabled = !state.running || state.paused || state.finished;
+        ui.confirm.innerHTML = '确认这件 <span aria-hidden="true">→</span>';
+        ui.previewProgress.textContent = state.picks.length + ' / 4 已完成';
+        renderEquipped();
+        renderPreview();
+      }
+
+      function renderEquipped() {
+        ui.equipped.innerHTML = categories.map(function (category, index) {
+          const pick = state.picks[index];
+          const isCurrent = index === state.categoryIndex && !state.finished;
+          return '<div class="equipped-piece' + (pick ? ' is-done' : '') + '" title="' + (pick ? pick.name : category.label) + '"><span>' + (pick ? pick.icon : isCurrent ? '✳' : '·') + '</span><small>' + (pick ? pick.name : category.label) + '</small></div>';
+        }).join('');
+        ui.equippedCount.textContent = state.picks.length + ' / 4';
+      }
+
+      function renderModel(gender, ageIndex, pieces, weather, occasion) {
+        const male = gender === 'male';
+        const skin = '#d9b18f';
+        const hair = ageIndex === 4 ? '#88857e' : male ? '#40372f' : '#594339';
+        const topItem = pieces[0];
+        const bottomItem = pieces[1];
+        const shoeItem = pieces[2];
+        const accessory = pieces[3];
+        const topColor = topItem ? topItem.color : '#e7dfd2';
+        const bottomColor = bottomItem ? bottomItem.color : '#c9c4ba';
+        const shoeColor = shoeItem ? shoeItem.color : '#e1d7c7';
+        const headBack = male
+          ? '<path d="M102 69 C98 45 111 29 132 31 C153 32 162 47 157 72 L151 91 L106 91 Z" fill="' + hair + '"/>'
+          : '<path d="M99 76 C91 43 105 26 131 27 C159 27 171 48 162 83 L169 151 Q164 162 150 166 L146 103 L111 103 L105 165 Q91 162 85 151 Z" fill="' + hair + '"/><path d="M94 88 Q89 119 94 145 M165 88 Q171 119 165 146" fill="none" stroke="#735648" stroke-width="2"/>';
+        const headFront = male
+          ? '<path d="M103 57 Q106 34 130 34 Q150 33 158 52 L151 49 Q143 44 133 46 Q119 45 107 59 L106 66 Z" fill="' + hair + '"/><path d="M137 41 Q146 40 152 45" fill="none" stroke="#766258" stroke-width="1.5"/>'
+          : '<path d="M102 58 Q106 32 131 32 Q154 33 160 56 L153 53 Q143 44 130 45 Q116 45 106 61 Z" fill="' + hair + '"/>';
+        const arms = male
+          ? '<path d="M91 117 Q73 122 67 145 L53 192 Q50 207 59 211 Q67 214 72 204 L94 158 M169 117 Q187 122 193 145 L207 192 Q210 207 201 211 Q193 214 188 204 L166 158" fill="none" stroke="' + skin + '" stroke-width="14" stroke-linecap="round"/>'
+          : '<path d="M93 119 Q76 124 69 145 L54 195 Q51 208 60 213 Q69 217 74 206 L96 159 M167 119 Q184 124 191 145 L206 195 Q209 208 200 213 Q191 217 186 206 L164 159" fill="none" stroke="' + skin + '" stroke-width="15" stroke-linecap="round"/>';
+        const topShape = topItem && ['coat', 'raincoat', 'blazer', 'jacket', 'shell', 'woolcoat'].includes(topItem.kind)
+            ? '<path class="garment" d="M94 112 L78 120 L64 160 L82 174 L95 157 L91 244 L169 244 L165 157 L178 174 L196 160 L182 120 L166 112 L150 105 L110 105 Z" fill="' + topColor + '"/>'
+            : male
+              ? '<path class="garment" d="M94 112 L78 120 L64 160 L82 174 L95 157 L94 230 L166 230 L165 157 L178 174 L196 160 L182 120 L166 112 L150 105 L110 105 Z" fill="' + topColor + '"/>'
+              : '<path class="garment" d="M97 112 L81 120 L62 163 L83 176 L96 157 L99 230 L161 230 L164 157 L177 176 L198 163 L179 120 L163 112 L149 105 L111 105 Z" fill="' + topColor + '"/>';
+        const legSkin = '<path d="M91 225 L169 225 L164 315 L137 315 L130 260 L123 315 L96 315 Z" fill="' + skin + '"/>';
+        const shortBottom = male
+          ? '<path class="garment" d="M87 221 L173 221 L168 266 L135 264 L130 292 L114 292 L109 264 L91 266 Z" fill="' + bottomColor + '"/>'
+          : '<path class="garment" d="M91 221 L169 221 L165 265 L135 263 L130 292 L114 292 L109 263 L95 265 Z" fill="' + bottomColor + '"/>';
+        const longBottom = bottomItem && ['skirt', 'longskirt', 'woolskirt'].includes(bottomItem.kind)
+          ? '<path class="garment" d="' + (bottomItem.kind === 'longskirt'
+            ? 'M96 222 L164 222 L176 315 Q130 325 84 315 Z'
+            : bottomItem.kind === 'woolskirt'
+              ? 'M96 222 L164 222 L174 296 Q130 305 86 296 Z'
+              : 'M96 222 L164 222 L174 278 Q130 289 86 278 Z') + '" fill="' + bottomColor + '"/>'
+          : bottomItem && bottomItem.kind === 'shorts'
+            ? shortBottom
+          : male
+            ? '<path class="garment" d="M89 222 L171 222 L166 319 L135 319 L130 259 L124 319 L93 319 Z" fill="' + bottomColor + '"/>'
+            : '<path class="garment" d="M93 222 L167 222 L163 319 L136 319 L130 259 L124 319 L97 319 Z" fill="' + bottomColor + '"/>';
+        const isShort = bottomItem && bottomItem.kind === 'shorts';
+        const shoes = shoeItem && ['sandals', 'heels', 'espadrilles'].includes(shoeItem.kind)
+          ? '<path class="garment" d="' + (shoeItem.kind === 'heels'
+            ? 'M100 313 L119 313 L118 325 L91 327 L91 322 Z M141 313 L160 313 L170 322 L169 327 L142 325 Z'
+            : 'M98 313 L120 313 L121 326 L92 327 Z M140 313 L162 313 L168 327 L139 326 Z') + '" fill="' + shoeColor + '" stroke="#62594d" stroke-width="2"/><path d="M101 313 L113 324 M148 313 L157 324" fill="none" stroke="#fffaf0" stroke-width="2"/>'
+          : '<path class="garment" d="' + (shoeItem && ['boots', 'rainboots', 'snowboots', 'fleeceboots', 'hiking', 'highhikers'].includes(shoeItem.kind)
+            ? 'M96 286 L121 286 L122 323 Q113 331 88 327 L89 312 Z M139 286 L164 286 L168 327 Q145 331 137 323 Z'
+            : 'M96 312 L122 312 L122 324 Q113 331 88 327 Q86 320 96 312 Z M138 312 L164 312 L168 327 Q145 331 137 324 Z') + '" fill="' + shoeColor + '" stroke="#62594d" stroke-width="2"/><path d="M93 323 Q105 327 119 323 M141 323 Q153 327 166 323" fill="none" stroke="#fffaf0" stroke-width="2" stroke-linecap="round"/>';
+        const neckline = male
+          ? '<path class="garment-detail" d="M111 108 L130 128 L149 108"/>'
+          : '<path class="garment-detail" d="M112 108 Q130 134 148 108"/>';
+        let topDetail = neckline;
+        if (topItem && topItem.kind === 'shirt') {
+          topDetail += '<path class="garment-detail" d="M130 128 L130 218 M114 112 L130 128 L143 112"/><circle cx="130" cy="151" r="1.8" fill="#fffaf0"/><circle cx="130" cy="169" r="1.8" fill="#fffaf0"/><circle cx="130" cy="187" r="1.8" fill="#fffaf0"/>';
+        } else if (topItem && topItem.kind === 'hoodie') {
+          topDetail += '<path class="garment-detail" d="M116 119 Q130 106 144 119 L141 132 L119 132 Z M111 190 Q130 184 149 190 L146 209 L114 209 Z"/>';
+        } else if (topItem && topItem.kind === 'raincoat') {
+          topDetail += '<path class="garment-detail" d="M130 128 L130 237 M106 190 L154 190 M90 132 L79 159 L88 166 M170 132 L181 159 L172 166"/>';
+        } else if (topItem && topItem.kind === 'blazer') {
+          topDetail += '<path class="garment-detail" d="M115 111 L130 131 L145 111 M130 131 L130 239 M147 158 L160 158 L160 177 L147 177"/>';
+        } else if (topItem && topItem.kind === 'shell') {
+          topDetail += '<path class="garment-detail" d="M130 128 L130 241 M102 190 L158 190 M112 125 L94 158 M148 125 L166 158"/>';
+        } else if (topItem && topItem.kind === 'linen') {
+          topDetail += '<path class="garment-detail" d="M130 128 L130 219 M113 112 L130 128 L146 112 M104 205 L112 199 M148 199 L156 205"/>';
+        } else if (topItem && topItem.kind === 'woolcoat') {
+          topDetail += '<path class="garment-detail" d="M112 111 L130 132 L148 111 M130 132 L130 241 M103 190 L116 190"/>';
+        } else if (topItem) {
+          topDetail += '<path class="garment-detail" d="M112 215 L148 215"/>';
+        }
+        if (topItem && topItem.pattern === 'stripe') {
+          topDetail += '<path class="garment-detail" d="M99 151 L119 151 M141 151 L161 151 M96 169 L121 169 M139 169 L163 169 M98 187 L122 187 M138 187 L162 187"/>';
+        }
+        if (topItem && topItem.fabric === 'waterproof') {
+          topDetail += '<path d="M104 139 Q130 128 156 139 M103 177 Q130 167 157 177" fill="none" stroke="#f4fbff" stroke-opacity=".72" stroke-width="3" stroke-linecap="round"/>';
+        }
+        if (topItem && topItem.fabric === 'wool') {
+          topDetail += '<path d="M110 116 Q130 135 150 116" fill="none" stroke="#f5ecdc" stroke-width="7" stroke-linecap="round"/>';
+        }
+        let bottomDetail = '';
+        if (bottomItem && ['jeans', 'trousers', 'suitpants', 'linenpants', 'cargo', 'windpants', 'waterproof', 'warm'].includes(bottomItem.kind)) {
+          bottomDetail = '<path class="garment-detail" d="M130 232 L130 253 M99 238 L109 244 M151 244 L161 238 M98 307 L119 307 M141 307 L162 307"/>';
+        }
+        if (bottomItem && bottomItem.kind === 'jeans') {
+          bottomDetail += '<path d="M100 232 L116 232 L114 246 L98 244 Z M144 232 L160 232 L162 244 L146 246 Z" fill="none" stroke="#dbe2e4" stroke-width="1.5"/>';
+        } else if (bottomItem && bottomItem.kind === 'cargo') {
+          bottomDetail += '<path d="M94 258 L115 258 L114 278 L93 278 Z M145 258 L166 258 L167 278 L146 278 Z" fill="none" stroke="#eef7f7" stroke-width="2"/><path d="M96 265 L112 265 M148 265 L164 265" fill="none" stroke="#eef7f7" stroke-width="1.5"/>';
+        } else if (bottomItem && ['skirt', 'longskirt', 'woolskirt'].includes(bottomItem.kind)) {
+          bottomDetail += '<path d="M105 231 L101 272 M117 231 L114 275 M143 231 L146 275 M155 231 L159 272" fill="none" stroke="#fffaf0" stroke-opacity=".65" stroke-width="1.5"/>';
+        }
+        let shoeDetail = weather === 'rainy'
+          ? '<path d="M89 328 Q108 334 122 328 M137 328 Q154 334 169 328" fill="none" stroke="#292b2e" stroke-width="4" stroke-linecap="round"/><path d="M94 320 L117 320 M143 320 L164 320" fill="none" stroke="#eef7f7" stroke-width="1.5"/>'
+          : weather === 'cold'
+            ? '<path d="M97 291 Q108 286 120 291 M140 291 Q152 286 163 291" fill="none" stroke="#f4eadb" stroke-width="5" stroke-linecap="round"/>'
+            : '<path d="M93 328 Q108 332 122 328 M138 328 Q153 332 168 328" fill="none" stroke="#d1c9bb" stroke-width="1.5"/>';
+        if (shoeItem && ['oxfords', 'loafers'].includes(shoeItem.kind)) {
+          shoeDetail += '<path d="M101 315 L108 322 L115 315 M145 315 L152 322 L159 315" fill="none" stroke="#f7edda" stroke-width="1.5"/>';
+        } else if (shoeItem && ['hiking', 'highhikers'].includes(shoeItem.kind)) {
+          shoeDetail += '<path d="M100 300 L119 307 M142 307 L160 300 M100 307 L119 314 M142 314 L160 307" fill="none" stroke="#f7edda" stroke-width="1.6"/>';
+        }
+        const weatherDetails = weather === 'rainy'
+          ? '<g fill="none" stroke="#edf6f7" stroke-linecap="round" stroke-linejoin="round"><path d="M96 119 Q130 100 164 119 L158 132 Q130 119 102 132 Z" fill="#ffffff" fill-opacity=".16" stroke-width="2"/><path d="M100 137 L91 157 M160 137 L169 157 M104 232 L156 232 M96 240 L102 245 M158 240 L164 245" stroke-width="2.2"/><path d="M74 146 L69 154 M186 146 L191 154 M76 163 L71 171 M184 163 L189 171" stroke-width="1.4"/></g>'
+          : weather === 'cold'
+            ? '<g fill="none" stroke="#f4eadb" stroke-linecap="round" stroke-linejoin="round"><path d="M103 117 Q130 137 157 117" stroke-width="8" opacity=".92"/><path d="M82 165 L92 170 M178 165 L168 170 M96 240 L164 240" stroke-width="6" opacity=".78"/><path d="M106 150 L154 174 M106 174 L154 198 M154 150 L106 174 M154 174 L106 198" stroke-width="1.3" opacity=".62"/><path d="M100 280 L160 280 M100 288 L160 288" stroke-width="1.2" opacity=".72"/></g>'
+            : '<g fill="#ffffff" fill-opacity=".52"><circle cx="115" cy="166" r="1.3"/><circle cx="123" cy="166" r="1.3"/><circle cx="137" cy="166" r="1.3"/><circle cx="145" cy="166" r="1.3"/></g><path d="M97 156 Q88 166 82 173 M163 156 Q172 166 178 173" fill="none" stroke="#fffaf0" stroke-width="2.2" stroke-linecap="round"/>';
+        const occasionDetails = occasion === 'formal'
+          ? '<g fill="none" stroke="#f7edda" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M115 111 L130 133 L145 111 M130 133 L130 221"/><path d="M145 154 L158 154 L158 170 L145 170"/><path d="M91 222 L169 222"/></g><path d="M130 136 L134 144 L130 153 L126 144 Z" fill="#d0ae72"/>'
+          : occasion === 'outdoor'
+            ? '<g fill="none" stroke="#eee4cb" stroke-width="2" stroke-linecap="round"><path d="M96 128 L83 160 L93 166 M164 128 L177 160 L167 166 M101 215 L111 220 M149 220 L159 215"/><path d="M87 173 L95 177 M165 177 L173 173"/></g>'
+            : '<g fill="none" stroke="#fffaf0" stroke-width="1.5" stroke-linecap="round"><path d="M112 216 L122 218 M138 218 L148 216"/><path d="M105 145 L113 148 M147 148 L155 145"/></g>';
+        let accessoryShape = '';
+        if (accessory && ['cap', 'beanie'].includes(accessory.kind)) {
+          accessoryShape = '<path d="M101 45 Q130 25 159 45 L157 54 L103 54 Z M97 53 Q130 47 163 53 Q157 60 102 59 Z" fill="' + accessory.color + '" stroke="#554b40" stroke-width="2"/>';
+        } else if (accessory && accessory.kind === 'belt') {
+          accessoryShape = '<path d="M91 224 L169 224 L169 233 L91 233 Z" fill="' + accessory.color + '"/><rect x="124" y="224" width="12" height="9" rx="2" fill="#d1b779"/>';
+        } else if (accessory && accessory.kind === 'scarf') {
+          accessoryShape = '<path d="M117 112 Q130 124 143 112 L140 198 L130 213 L120 198 Z" fill="' + accessory.color + '" stroke="#615744" stroke-width="1.5"/>';
+        } else if (accessory && accessory.kind === 'gloves') {
+          accessoryShape = '<circle cx="58" cy="207" r="10" fill="' + accessory.color + '"/><circle cx="202" cy="207" r="10" fill="' + accessory.color + '"/>';
+        } else if (accessory && accessory.kind === 'umbrella') {
+          accessoryShape = '<path d="M178 110 Q204 75 230 110 Q220 104 213 111 Q204 103 195 111 Q187 104 178 110 Z" fill="' + accessory.color + '" stroke="#62594d" stroke-width="1.5"/><path d="M204 109 L204 205 Q204 214 196 214" fill="none" stroke="#62594d" stroke-width="3" stroke-linecap="round"/>';
+        } else if (accessory && accessory.kind === 'watch') {
+          accessoryShape = '<rect x="185" y="179" width="8" height="21" rx="3" fill="' + accessory.color + '"/><circle cx="189" cy="189" r="5" fill="#d1b779"/>';
+        } else if (accessory && accessory.kind === 'glasses') {
+          accessoryShape = '<path d="M111 72 Q120 68 128 72 L127 79 Q120 83 113 79 Z M133 72 Q141 68 149 72 L147 79 Q140 83 134 79 Z M128 74 L133 74" fill="none" stroke="' + accessory.color + '" stroke-width="2"/>';
+        } else if (accessory && accessory.kind === 'sunhat') {
+          accessoryShape = '<path d="M100 47 Q130 30 160 47 L158 56 L102 56 Z M86 57 Q130 49 174 57 Q166 66 94 65 Z" fill="' + accessory.color + '" stroke="#554b40" stroke-width="2"/>';
+        } else if (accessory && accessory.kind === 'earmuffs') {
+          accessoryShape = '<path d="M105 63 Q130 24 155 63" fill="none" stroke="' + accessory.color + '" stroke-width="5"/><circle cx="104" cy="69" r="7" fill="' + accessory.color + '"/><circle cx="156" cy="69" r="7" fill="' + accessory.color + '"/>';
+        } else if (accessory && accessory.kind === 'sleeves') {
+          accessoryShape = '<path d="M61 187 L71 191 L67 205 L57 201 Z M189 191 L199 187 L203 201 L193 205 Z" fill="' + accessory.color + '" fill-opacity=".82"/>';
+        } else if (accessory && accessory.kind === 'brooch') {
+          accessoryShape = '<path d="M151 139 L155 146 L163 147 L157 153 L158 161 L151 157 L144 161 L145 153 L139 147 L147 146 Z" fill="' + accessory.color + '" stroke="#f7edda" stroke-width="1.5"/>';
+        } else if (accessory && accessory.kind === 'silkscarf') {
+          accessoryShape = '<path d="M117 111 Q130 123 143 111 L139 147 L130 158 L121 147 Z" fill="' + accessory.color + '" stroke="#f7edda" stroke-width="1.5"/>';
+        } else if (accessory && accessory.kind === 'drybag') {
+          accessoryShape = '<path d="M162 169 L183 169 L187 218 L159 218 Z" fill="' + accessory.color + '" stroke="#eef7f7" stroke-width="2"/><path d="M163 176 L182 176 M165 183 L180 183 M166 190 L179 190" fill="none" stroke="#eef7f7" stroke-width="1.5"/>';
+        } else if (accessory && ['backpack', 'tote', 'crossbody'].includes(accessory.kind)) {
+          accessoryShape = '<path d="M164 151 Q153 180 171 209" fill="none" stroke="' + accessory.color + '" stroke-width="5"/><path d="M161 188 L184 188 L187 220 L161 220 Z" fill="' + accessory.color + '" stroke="#654b38" stroke-width="2"/>';
+        }
+        const faceShape = male
+          ? '<path d="M107 59 Q130 48 153 59 L150 82 Q146 102 130 107 Q114 102 110 82 Z" fill="' + skin + '" stroke="#554b40" stroke-width="1.5"/>'
+          : '<path d="M105 60 Q130 47 155 60 L151 82 Q148 102 130 106 Q112 102 109 82 Z" fill="' + skin + '" stroke="#554b40" stroke-width="1.5"/>';
+        const facialFeatures = male
+          ? '<path d="M115 69 L126 68 M134 68 L145 69 M117 75 Q121 73 125 75 M135 75 Q139 73 143 75" fill="none" stroke="#40372f" stroke-width="2" stroke-linecap="round"/><path d="M125 89 Q130 92 135 89" fill="none" stroke="#8b574d" stroke-width="1.8" stroke-linecap="round"/>'
+          : '<path d="M115 69 Q120 66 126 69 M134 69 Q140 66 145 69 M116 76 Q121 72 126 76 M134 76 Q139 72 144 76" fill="none" stroke="#554339" stroke-width="1.7" stroke-linecap="round"/><circle cx="121" cy="75" r="1.5" fill="#40372f"/><circle cx="139" cy="75" r="1.5" fill="#40372f"/><path d="M125 89 Q130 92 135 89" fill="none" stroke="#a26760" stroke-width="1.8" stroke-linecap="round"/>';
+        const genderLabel = male ? '男性' : '女性';
+        const ageLabel = ageGroups[ageIndex].label;
+        const ageTransform = ageIndex === 0 ? 'translate(16 17) scale(.88 .91)' : ageIndex === 4 ? 'translate(3 5) scale(.97 .97)' : 'translate(0 0)';
+        return '<title>' + ageLabel + ' ' + genderLabel + '穿搭模型</title><ellipse cx="130" cy="336" rx="74" ry="8" fill="#cfc7b8"/><g transform="' + ageTransform + '">' +
+          headBack + legSkin + arms +
+          '<circle cx="103" cy="72" r="6" fill="' + skin + '"/><circle cx="157" cy="72" r="6" fill="' + skin + '"/>' + faceShape +
+          '<rect x="120" y="96" width="20" height="23" rx="7" fill="' + skin + '"/>' +
+          topShape + topDetail + (isShort ? shortBottom : longBottom) + bottomDetail + shoes + shoeDetail + accessoryShape + weatherDetails + occasionDetails + headFront +
+          facialFeatures + '</g>';
+      }
+
+      function renderPreview() {
+        const preview = state.picks.slice();
+        if (state.choices.length && state.categoryIndex < categories.length) {
+          preview[state.categoryIndex] = state.choices[state.selectedIndex];
+        }
+        const ageIndex = ageGroups.findIndex(function (age) { return age.id === state.age; });
+        ui.avatarModel.setAttribute('aria-label', ageGroups[ageIndex].label + ' ' + (state.gender === 'male' ? '男性' : '女性') + '穿搭模型');
+        const model = renderModel(state.gender, ageIndex, preview, state.weather, state.occasion);
+        ui.avatarModel.innerHTML = model;
+        ui.videoLookModel.innerHTML = model;
+        ui.videoLookStep.textContent = '实时试穿 · ' + String(state.categoryIndex + 1).padStart(2, '0') + ' / 04';
+        const currentChoice = state.choices[state.selectedIndex];
+        ui.videoLookChoice.textContent = currentChoice
+          ? '待选 · ' + currentChoice.name
+          : '正在挑选' + categories[state.categoryIndex].label;
+      }
+
+      function selectOption(direction) {
+        if (!state.running || state.paused || state.finished) return;
+        state.selectedIndex = (state.selectedIndex + direction + state.choices.length) % state.choices.length;
+        renderRound();
+        showReaction('excited');
+      }
+
+      function confirmOption() {
+        if (!state.running || state.paused || state.finished || !state.choices.length) return;
+        const choice = state.choices[state.selectedIndex];
+        const category = categories[state.categoryIndex];
+        const ageIndex = ageGroups.findIndex(function (age) { return age.id === state.age; });
+        state.score += choice.fit + (choice.ideal ? state.combo * 10 : 0);
+        state.combo = choice.ideal ? state.combo + 1 : 0;
+        state.picks[state.categoryIndex] = choice;
+        updateStats();
+        renderEquipped();
+        renderPreview();
+        showReaction(state.categoryIndex === categories.length - 1
+          ? 'praise'
+          : choice.ideal
+            ? 'happy'
+            : choice.fit >= 85
+              ? 'like'
+              : choice.fit >= 65
+                ? 'admire'
+                : 'sad');
+        showToast((choice.ideal ? '很合适！' : '搭配得分 +' + choice.fit) + ' · ' + category.label);
+        if (state.categoryIndex < categories.length - 1) {
+          state.categoryIndex += 1;
+          state.selectedIndex = 0;
+          state.choices = makeChoices(state.categoryIndex);
+          renderRound();
+          return;
+        }
+        state.round += 1;
+        state.categoryIndex = 0;
+        window.setTimeout(function () {
+          if (state.finished) return;
+          state.picks = [];
+          state.choices = makeChoices(state.categoryIndex);
+          renderRound();
+          updateStats();
+        }, reducedMotion ? 0 : 950);
+      }
+
+      function finishGame() {
+        if (state.finished) return;
+        state.running = false;
+        state.paused = false;
+        state.finished = true;
+        window.clearInterval(timerHandle);
+        ui.status.classList.remove('is-playing');
+        ui.status.querySelector('span').textContent = '本局结束';
+        ui.confirm.disabled = true;
+        ui.pauseGame.disabled = true;
+        ui.finalScore.textContent = String(state.score).padStart(3, '0');
+        const completedLooks = Math.max(0, state.round - 1);
+        ui.resultCopy.textContent = '完成 ' + completedLooks + ' 套造型，连续命中 ' + state.combo + ' 件单品。每个年龄阶段都有自己的舒适与风格重点，继续搭配，刷新你的最佳纪录吧。';
+        if (state.score > state.best) {
+          state.best = state.score;
+          try {
+            window.localStorage.setItem('style-studio-best', String(state.best));
+          } catch (error) {
+            console.warn('无法保存最佳纪录：', error);
+            showToast('本局得分已记录，但浏览器未允许保存最佳纪录。');
+          }
+        }
+        updateStats();
+        ui.result.hidden = false;
+        ui.playAgain.focus();
+      }
+
+      function startGame() {
+        window.clearInterval(timerHandle);
+        state.round = 1;
+        state.score = 0;
+        state.seconds = 60;
+        state.categoryIndex = 0;
+        state.selectedIndex = 0;
+        state.picks = [];
+        state.combo = 0;
+        state.running = true;
+        state.paused = false;
+        state.finished = false;
+        state.choices = makeChoices(0);
+        ui.result.hidden = true;
+        ui.status.classList.add('is-playing');
+        ui.status.querySelector('span').textContent = '挑战进行中';
+        ui.pauseGame.disabled = false;
+        ui.pauseGame.textContent = '暂停挑战';
+        updateStats();
+        renderRound();
+        timerHandle = window.setInterval(function () {
+          if (!state.running || state.paused || state.finished) return;
+          state.seconds -= 1;
+          updateStats();
+          if (state.seconds <= 0) finishGame();
+        }, 1000);
+      }
+
+      function togglePause() {
+        if (!state.running || state.finished) return;
+        state.paused = !state.paused;
+        ui.status.classList.toggle('is-playing', !state.paused);
+        ui.status.querySelector('span').textContent = state.paused ? '已暂停' : '挑战进行中';
+        ui.confirm.disabled = state.paused;
+        ui.pauseGame.textContent = state.paused ? '继续挑战' : '暂停挑战';
+        showToast(state.paused ? '已暂停 · 握拳或点击“继续挑战”恢复' : '继续搭配！');
+      }
+
+      function drawHand(landmarks, width, height) {
+        const points = landmarks.map(function (point) { return { x: point.x * width, y: point.y * height }; });
+        cameraContext.lineWidth = 2;
+        fingerConnections.forEach(function (connection) {
+          const start = connection[0];
+          const end = connection[1];
+          let fingerIndex = 0;
+          if ((start >= 1 && start <= 4) || (end >= 1 && end <= 4)) fingerIndex = 1;
+          else if ((start >= 5 && start <= 8) || (end >= 5 && end <= 8)) fingerIndex = 2;
+          else if ((start >= 9 && start <= 12) || (end >= 9 && end <= 12)) fingerIndex = 3;
+          else if ((start >= 13 && start <= 16) || (end >= 13 && end <= 16)) fingerIndex = 4;
+          else if ((start >= 17 && start <= 20) || (end >= 17 && end <= 20)) fingerIndex = 5;
+          cameraContext.strokeStyle = fingerColors[fingerIndex];
+          cameraContext.beginPath();
+          cameraContext.moveTo(points[start].x, points[start].y);
+          cameraContext.lineTo(points[end].x, points[end].y);
+          cameraContext.stroke();
+        });
+        points.forEach(function (point, index) {
+          let fingerIndex = 0;
+          if (index >= 1 && index <= 4) fingerIndex = 1;
+          else if (index >= 5 && index <= 8) fingerIndex = 2;
+          else if (index >= 9 && index <= 12) fingerIndex = 3;
+          else if (index >= 13 && index <= 16) fingerIndex = 4;
+          else if (index >= 17 && index <= 20) fingerIndex = 5;
+          cameraContext.fillStyle = fingerColors[fingerIndex];
+          cameraContext.beginPath();
+          cameraContext.arc(point.x, point.y, index % 4 === 0 ? 4 : 2.5, 0, Math.PI * 2);
+          cameraContext.fill();
+        });
+      }
+
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      function fingerCurled(landmarks, tipIndex, pipIndex, mcpIndex, wristIndex) {
+        const tip = landmarks[tipIndex];
+        const pip = landmarks[pipIndex];
+        const mcp = landmarks[mcpIndex];
+        const wrist = landmarks[wristIndex];
+        return distance(tip, wrist) < distance(pip, wrist) * 0.9 && distance(tip, mcp) < 0.18;
+      }
+
+      function detectGesture(landmarks, width, height) {
+        const points = landmarks.map(function (point) { return { x: point.x * width, y: point.y * height }; });
+        if (distance(points[4], points[8]) < 50) return { name: 'OK' };
+        const curls = [
+          fingerCurled(landmarks, 4, 2, 1, 0),
+          fingerCurled(landmarks, 8, 6, 5, 0),
+          fingerCurled(landmarks, 12, 10, 9, 0),
+          fingerCurled(landmarks, 16, 14, 13, 0),
+          fingerCurled(landmarks, 20, 18, 17, 0)
+        ];
+        if (curls[1] && curls.filter(Boolean).length >= 4 && distance(landmarks[5], landmarks[17]) > 0.12 && distance(landmarks[9], landmarks[0]) < 0.4) {
+          return { name: 'Fist' };
+        }
+        const isPointing = !curls[1] && curls[2] && curls[3] && curls[4];
+        if (!isPointing) {
+          swipeAnchorX = null;
+          return { name: 'Idle' };
+        }
+        const indexTipX = points[8].x;
+        if (swipeAnchorX === null) {
+          swipeAnchorX = indexTipX;
+          return { name: 'Pointing' };
+        }
+        const deltaX = indexTipX - swipeAnchorX;
+        if (Math.abs(deltaX) > width * 0.12 && Date.now() - lastSwipeAt > 650) {
+          lastSwipeAt = Date.now();
+          swipeAnchorX = indexTipX;
+          // The camera preview is mirrored, so reverse the raw landmark direction.
+          return { name: 'Swipe', direction: deltaX > 0 ? 'left' : 'right' };
+        }
+        if (Math.abs(deltaX) < width * 0.06) swipeAnchorX = indexTipX;
+        return { name: 'Pointing' };
+      }
+
+      function handleGesture(gesture) {
+        if (gesture.name !== activeGesture) {
+          activeGesture = gesture.name;
+          gestureSince = Date.now();
+          actedForGesture = false;
+        }
+        ui.gestureLabel.textContent = gesture.name === 'Pointing'
+          ? '食指指向 · 左右滑动换款'
+          : gesture.name === 'Idle'
+            ? '等待手势…'
+            : gesture.name === 'Swipe'
+              ? '食指' + (gesture.direction === 'left' ? '左滑' : '右滑') + ' · 换一件'
+              : gesture.name;
+        if (gesture.name === 'Swipe') {
+          ui.gestureBadge.textContent = '食指' + (gesture.direction === 'left' ? '左滑 · 上一件' : '右滑 · 下一件');
+          ui.gestureBadge.classList.add('is-visible');
+          window.setTimeout(function () { ui.gestureBadge.classList.remove('is-visible'); }, 850);
+          selectOption(gesture.direction === 'left' ? -1 : 1);
+          return;
+        }
+        if (gesture.name === 'Idle' || gesture.name === 'Pointing' || actedForGesture || Date.now() - gestureSince < 180) return;
+        actedForGesture = true;
+        ui.gestureBadge.textContent = gesture.name === 'OK' ? 'OK · 接受并进入下一类' : '握拳 · 暂停 / 继续';
+        ui.gestureBadge.classList.add('is-visible');
+        window.setTimeout(function () { ui.gestureBadge.classList.remove('is-visible'); }, 850);
+        if (gesture.name === 'OK') confirmOption();
+        if (gesture.name === 'Fist') togglePause();
+      }
+
+      function onResults(results) {
+        const width = ui.cameraVideo.videoWidth || 640;
+        const height = ui.cameraVideo.videoHeight || 480;
+        ui.cameraCanvas.width = width;
+        ui.cameraCanvas.height = height;
+        cameraContext.clearRect(0, 0, width, height);
+        const hands = results.multiHandLandmarks;
+        if (hands && hands.length) {
+          drawHand(hands[0], width, height);
+          handleGesture(detectGesture(hands[0], width, height));
+          const wrist = hands[0][0];
+          const bounds = ui.cameraView.getBoundingClientRect();
+          const scale = Math.max(bounds.width / width, bounds.height / height);
+          const frameWidth = width * scale;
+          const frameHeight = height * scale;
+          const frameLeft = bounds.left + (bounds.width - frameWidth) / 2;
+          const frameTop = bounds.top + (bounds.height - frameHeight) / 2;
+          ui.cursor.style.left = (frameLeft + (1 - wrist.x) * frameWidth - 8) + 'px';
+          ui.cursor.style.top = (frameTop + wrist.y * frameHeight - 8) + 'px';
+          ui.cursor.classList.add('is-visible');
+        } else {
+          swipeAnchorX = null;
+          activeGesture = 'Idle';
+          actedForGesture = false;
+          ui.gestureLabel.textContent = '等待手势…';
+          ui.cursor.classList.remove('is-visible');
+        }
+      }
+
+      function processFrames(timestamp) {
+        if (!cameraStream) return;
+        if (timestamp - lastFrameAt >= 33 && !framePending && ui.cameraVideo.readyState >= 2) {
+          lastFrameAt = timestamp;
+          framePending = true;
+          handsModel.send({ image: ui.cameraVideo }).catch(function (error) {
+            console.error('手势识别失败：', error);
+            ui.cameraGuidance.textContent = '手势识别遇到问题，请关闭后重新开启。';
+          }).finally(function () { framePending = false; });
+        }
+        animationFrame = window.requestAnimationFrame(processFrames);
+      }
+
+      function resizeCameraStage() {
+        const sourceWidth = ui.cameraVideo.videoWidth || 640;
+        const sourceHeight = ui.cameraVideo.videoHeight || 480;
+        ui.cameraView.style.aspectRatio = sourceWidth + ' / ' + sourceHeight;
+      }
+
+      async function stopCamera() {
+        if (animationFrame) window.cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(function (track) { track.stop(); });
+          cameraStream = null;
+        }
+        ui.cameraVideo.srcObject = null;
+        ui.cameraCanvas.width = 0;
+        ui.cameraCanvas.height = 0;
+        ui.cameraDock.classList.remove('is-maximized');
+        document.body.classList.remove('camera-open');
+        ui.cameraView.style.aspectRatio = '';
+        ui.cameraPlaceholder.hidden = false;
+        ui.cameraPlaceholder.textContent = '等待摄像头画面…';
+        ui.cameraStatus.classList.remove('is-live');
+        ui.cameraStatus.querySelector('span').textContent = '摄像头未开启';
+        ui.cameraToggle.textContent = '开启手势模式';
+        ui.cameraToggle.classList.remove('is-active');
+        ui.cameraToggle.setAttribute('aria-expanded', 'false');
+        ui.cursor.classList.remove('is-visible');
+        ui.cursor.style.zIndex = '';
+        ui.gestureBadge.style.zIndex = '';
+        if (handsModel) {
+          await handsModel.close();
+          handsModel = null;
+        }
+      }
+
+      async function startCamera() {
+        if (cameraStream) {
+          await stopCamera();
+          ui.cameraDock.hidden = true;
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showToast('当前浏览器不支持摄像头，请通过 HTTPS 或 localhost 访问。');
+          return;
+        }
+        ui.cameraDock.hidden = false;
+        ui.cameraDock.classList.add('is-maximized');
+        document.body.classList.add('camera-open');
+        ui.cursor.style.zIndex = '42';
+        ui.gestureBadge.style.zIndex = '45';
+        resizeCameraStage();
+        ui.cameraToggle.textContent = '正在开启…';
+        ui.cameraToggle.disabled = true;
+        ui.cameraGuidance.textContent = '请允许浏览器使用摄像头。';
+        try {
+          if (soundEnabled) {
+            try {
+              ensureAudioContext();
+            } catch (error) {
+              console.warn('无法初始化笑声音效：', error);
+              soundEnabled = false;
+              ui.soundToggle.setAttribute('aria-pressed', 'false');
+              ui.soundToggle.textContent = '笑声音效：关';
+            }
+          }
+          cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+          ui.cameraVideo.srcObject = cameraStream;
+          await ui.cameraVideo.play();
+          resizeCameraStage();
+          if (typeof Hands !== 'function') throw new Error('手势识别模型加载失败，请检查网络后刷新页面。');
+          handsModel = new Hands({ locateFile: function (file) {
+            return 'https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/' + file;
+          } });
+          handsModel.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.6 });
+          handsModel.onResults(onResults);
+          ui.cameraPlaceholder.hidden = true;
+          ui.cameraStatus.classList.add('is-live');
+          ui.cameraStatus.querySelector('span').textContent = '摄像头已开启';
+          ui.cameraGuidance.textContent = '食指左滑换上一件，右滑换下一件；OK 接受并进入下一类，握拳暂停或继续。';
+          ui.cameraToggle.textContent = '关闭手势模式';
+          ui.cameraToggle.classList.add('is-active');
+          ui.cameraToggle.setAttribute('aria-expanded', 'true');
+          lastFrameAt = 0;
+          animationFrame = window.requestAnimationFrame(processFrames);
+        } catch (error) {
+          console.error('摄像头初始化失败：', error);
+          const message = error.name === 'NotAllowedError'
+            ? '摄像头权限未开启；你仍可用鼠标、触屏或键盘玩游戏。'
+            : error.message || '摄像头无法启动，请检查设备后重试。';
+          ui.cameraGuidance.textContent = message;
+          ui.cameraPlaceholder.hidden = false;
+          ui.cameraPlaceholder.textContent = '摄像头未连接';
+          await stopCamera();
+          ui.cameraDock.hidden = false;
+          showToast(message);
+        } finally {
+          ui.cameraToggle.disabled = false;
+        }
+      }
+
+      function loadBest() {
+        try {
+          const saved = Number(window.localStorage.getItem('style-studio-best'));
+          state.best = Number.isFinite(saved) && saved > 0 ? saved : 0;
+        } catch (error) {
+          console.warn('无法读取最佳纪录：', error);
+          state.best = 0;
+        }
+      }
+
+      ui.confirm.addEventListener('click', confirmOption);
+      ui.occasionSelect.addEventListener('change', changeContext);
+      ui.weatherSelect.addEventListener('change', changeContext);
+      ui.restartGame.addEventListener('click', startGame);
+      ui.pauseGame.addEventListener('click', togglePause);
+      ui.cameraToggle.addEventListener('click', startCamera);
+      ui.soundToggle.addEventListener('click', function () {
+        soundEnabled = !soundEnabled;
+        if (soundEnabled) {
+          try {
+            if (!ensureAudioContext()) return;
+          } catch (error) {
+            console.warn('无法启用笑声音效：', error);
+            soundEnabled = false;
+          }
+        }
+        ui.soundToggle.setAttribute('aria-pressed', String(soundEnabled));
+        ui.soundToggle.textContent = '笑声音效：' + (soundEnabled ? '开' : '关');
+        if (!soundEnabled) showToast('笑声音效已关闭，表情反馈仍会显示。');
       });
-      hands.onResults(onResults);
-      setLoad('初始化手部模型…');
-      resolve();
-    }catch(e){
-      reject(e);
-    }
-  });
-}
+      ui.cameraClose.addEventListener('click', async function () {
+        await stopCamera();
+        ui.cameraDock.hidden = true;
+      });
+      window.addEventListener('resize', resizeCameraStage);
+      ui.resultClose.addEventListener('click', function () { ui.result.hidden = true; });
+      ui.playAgain.addEventListener('click', startGame);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          selectOption(1);
+        } else if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          selectOption(-1);
+        } else if (event.key === 'Enter' && ui.result.hidden && event.target.tagName !== 'BUTTON') {
+          confirmOption();
+        } else if (event.key === 'Escape' && ui.cameraDock.classList.contains('is-maximized')) {
+          ui.cameraClose.click();
+        } else if (event.key === 'Escape' && !ui.result.hidden) {
+          ui.result.hidden = true;
+        }
+      });
+      window.addEventListener('pagehide', function () {
+        if (cameraStream) cameraStream.getTracks().forEach(function (track) { track.stop(); });
+      });
 
-function startCamera(){
-  return new Promise(function(resolve,reject){
-    setLoad('请求摄像头…');
-    camera=new Camera(video,{
-      onFrame:function(){
-        return hands.send({image:video});
-      },
-      width:640,
-      height:480
-    });
-    camera.start().then(function(){
-      setLoad('准备就绪');
-      setTimeout(hideLoading,reducedMotion?0:400);
-      resolve();
-    }).catch(function(e){
-      reject(e);
-    });
-  });
-}
-
-retryBtn.addEventListener('click',function(){
-  hideError();
-  loadOverlay.classList.remove('hidden');
-  init().catch(function(e){
-    showError(e.message||'初始化失败，请重试。');
-  });
-});
-
-function init(){
-  return initHands().then(function(){
-    return startCamera();
-  });
-}
-
-// kick off
-init().catch(function(e){
-  console.error(e);
-  showError(e.message||'初始化失败，请重试。');
-});
-
-}catch(e){
-  console.error('Gesture init error:',e);
-  var eb=document.getElementById('errorBox');
-  var em=document.getElementById('errorMsg');
-  if(eb&&em){em.textContent='脚本初始化出错：'+e.message;eb.classList.add('show');}
-  var lo=document.getElementById('loadingOverlay');
-  if(lo) lo.classList.add('hidden');
-}
-})();
-</script>
+      loadBest();
+      renderContextSelectors();
+      renderProfiles();
+      updateStats();
+      startGame();
+    }());
+  </script>
 </body>
 </html>

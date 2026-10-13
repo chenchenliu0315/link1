@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f1e9">
+  <title>今日穿搭 · Daily Outfit Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="data.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body class="game-mode">
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="wordmark" href="../index.html" aria-label="返回互动实验室">
+        <span class="brand-mark" aria-hidden="true">穿</span>
+        <span><strong>风格捕手</strong><small>OUTFIT QUEST · 016</small></span>
+      </a>
+      <div class="topbar-right">
+        <a class="lab-link" href="../index.html">实验室 <span aria-hidden="true">↗</span></a>
+        <button class="camera-trigger" id="camera-toggle" type="button" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h-4l-2 2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2-2Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <span id="camera-button-label">手势模式</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="game-main">
+      <header class="game-heading">
+        <div><p class="game-kicker"><span class="eyebrow-dot"></span> DAILY STYLE QUEST</p><h1>今日穿搭挑战</h1></div>
+        <div class="game-stats" aria-label="本局游戏数据">
+          <div class="stat-box"><span>本局得分</span><strong id="score-display">000</strong></div>
+          <div class="stat-box timer-box"><span>剩余时间</span><strong id="timer-display">01:00</strong></div>
+          <div class="stat-box"><span>最佳纪录</span><strong id="best-display">000</strong></div>
+        </div>
+      </header>
+
+      <div class="game-board">
+        <aside class="quest-panel" aria-label="本轮穿搭挑战">
+          <div class="quest-heading"><span>ROUND <b id="round-number">01</b></span><button id="new-round" class="restart-button" type="button" aria-label="开始新挑战" title="新挑战">↻</button></div>
+          <h2>今日任务</h2>
+          <p class="quest-subtitle" id="quest-subtitle">按场景搭出合适的一身。</p>
+          <div class="quest-tags" id="quest-tags"></div>
+          <div class="age-picker"><span class="mini-label">穿搭年龄设定</span><div id="age-options" class="age-options" role="group" aria-label="穿搭年龄设定"></div></div>
+          <div class="quest-rule"><span class="rule-star">✳</span><p id="quest-rule-text">完成四件搭配，拿下风格高分。</p></div>
+          <div class="combo-meter"><div><span>连击加成</span><strong id="combo-display">× 1</strong></div><div class="combo-track"><i id="combo-fill"></i></div></div>
+        </aside>
+
+        <section class="avatar-stage" aria-label="穿搭角色展示">
+          <div class="stage-topline"><span><i class="stage-light"></i><span id="stage-style-label">STYLE HUNT</span></span><span id="stage-weather">☀ 22°</span></div>
+          <div class="avatar-image-wrap"><img id="avatar-image" src="https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1000&q=85" alt="本轮穿搭角色"/><div class="avatar-vignette"></div><div class="avatar-sticker" id="avatar-sticker">LOOK<br>01</div><div class="avatar-caption"><span id="avatar-mood">STYLE IN PROGRESS</span><h2 id="avatar-title">穿出你的<br>本轮灵感</h2></div></div>
+          <div class="equipped-bar"><div class="equipped-heading"><span>已搭配单品</span><span id="equipped-count">0 / 4</span></div><div id="equipped-items" class="equipped-items"></div></div>
+          <div class="camera-dock" id="camera-dock" hidden>
+            <div class="camera-view"><video id="camera-video" playsinline muted></video><canvas id="hand-canvas"></canvas><span id="camera-placeholder">等待摄像头画面</span></div>
+            <div class="camera-info"><span><i class="camera-status-dot" id="camera-status-dot"></i><span id="camera-status">摄像头未开启</span></span><strong id="gesture-label">准备就绪</strong><p id="camera-guidance">在明亮环境中将手放入画面</p></div>
+            <button id="camera-close" class="camera-close" type="button" aria-label="关闭摄像头">×</button>
+          </div>
+        </section>
+
+        <section class="wardrobe-panel" aria-label="挑选穿搭单品">
+          <div class="wardrobe-heading"><div><p class="mini-label">THE WARDROBE</p><h2 id="wardrobe-title">挑选上装</h2></div><span class="piece-count" id="piece-count">01 / 04</span></div>
+          <div class="piece-progress" id="piece-progress" aria-label="穿搭进度"></div>
+          <p class="wardrobe-hint" id="wardrobe-hint">选一件最适合今日任务的单品。</p>
+          <div id="wardrobe-options" class="wardrobe-options" role="group" aria-label="单品选项"></div>
+          <div class="wardrobe-controls"><span class="keyboard-hint"><kbd>←</kbd><kbd>→</kbd> 选择 <kbd>Enter</kbd> 确认</span><button class="button-primary" id="confirm-piece" type="button">确认这件 <span aria-hidden="true">→</span></button></div>
+        </section>
+      </div>
+
+      <footer class="game-footer"><span>搭配灵感来自天气、心情与今日行程</span><span><i class="footer-dot"></i> <span id="game-state-label">挑战进行中</span></span></footer>
+    </main>
+  </div>
+
+  <div id="result-overlay" class="result-overlay" hidden>
+    <section class="result-dialog" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <button id="result-close" class="result-close" type="button" aria-label="关闭结果">×</button>
+      <p class="game-kicker"><span class="eyebrow-dot"></span> ROUND COMPLETE</p>
+      <h2 id="result-title">搭配完成！</h2>
+      <div class="final-score"><strong id="final-score">000</strong><span>STYLE POINTS</span></div>
+      <p id="result-message" class="result-message"></p>
+      <div id="result-breakdown" class="result-breakdown"></div>
+      <div class="dialog-actions"><button id="save-look" class="button-secondary" type="button">保存本套穿搭</button><button id="play-again" class="button-primary" type="button">再玩一局 <span aria-hidden="true">↻</span></button></div>
+    </section>
+  </div>
+
+  <div id="gesture-cursor" class="gesture-cursor" aria-hidden="true"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
