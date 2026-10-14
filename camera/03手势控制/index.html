@@ -356,7 +356,7 @@
           <span class="camera-status" id="camera-status"><i></i><span>摄像头未开启</span></span>
           <strong id="gesture-label">准备就绪</strong>
           <p id="camera-guidance">食指左滑换上一件，右滑换下一件；OK 接受并进入下一类，握拳暂停或继续。</p>
-          <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true">笑声音效：开</button>
+          <button class="sound-toggle" id="sound-toggle" type="button" aria-pressed="true">表情音效：开</button>
         </div>
         <button class="camera-close" id="camera-close" type="button" aria-label="关闭摄像头">×</button>
       </section>
@@ -588,7 +588,7 @@
       let reactionTimer = 0;
       let audioContext = null;
       let soundEnabled = true;
-      let lastLaughAt = 0;
+      let lastReactionSoundAt = 0;
       let cameraStream = null;
       let handsModel = null;
       let animationFrame = 0;
@@ -614,50 +614,58 @@
         if (typeof window.AudioContext !== 'function') {
           soundEnabled = false;
           ui.soundToggle.setAttribute('aria-pressed', 'false');
-          ui.soundToggle.textContent = '笑声音效：不可用';
-          console.warn('当前浏览器不支持 Web Audio，笑声音效已关闭。');
+          ui.soundToggle.textContent = '表情音效：不可用';
+          console.warn('当前浏览器不支持 Web Audio，表情音效已关闭。');
           return false;
         }
         if (!audioContext) audioContext = new window.AudioContext();
         if (audioContext.state === 'suspended') {
           audioContext.resume().catch(function (error) {
-            console.warn('无法启用笑声音效：', error);
+            console.warn('无法启用表情音效：', error);
           });
         }
         return true;
       }
 
-      function playLaugh() {
-        if (!soundEnabled || !audioContext || Date.now() - lastLaughAt < 900) return;
-        lastLaughAt = Date.now();
-        const notes = [560, 740, 620, 820];
+      function playReactionSound(type) {
+        if (!soundEnabled || !audioContext || Date.now() - lastReactionSoundAt < 140) return;
+        lastReactionSoundAt = Date.now();
+        const sound = {
+          happy: { notes: [560, 740, 620, 820], gap: 0.105, duration: 0.1, wave: 'sine', volume: 0.055, slide: 1.18 },
+          sad: { notes: [440, 370, 310], gap: 0.17, duration: 0.21, wave: 'triangle', volume: 0.035, slide: 0.96 },
+          excited: { notes: [440, 587, 784, 1047], gap: 0.075, duration: 0.12, wave: 'sawtooth', volume: 0.025, slide: 1.1 },
+          like: { notes: [784, 988, 1175], gap: 0.15, duration: 0.3, wave: 'sine', volume: 0.04, slide: 1.035 },
+          admire: { notes: [880, 1175, 1480, 1760], gap: 0.09, duration: 0.19, wave: 'sine', volume: 0.03, slide: 1.025 },
+          praise: { notes: [523, 659, 784, 1047], gap: 0.13, duration: 0.28, wave: 'triangle', volume: 0.04, slide: 1.015 }
+        }[type];
+        if (!sound) return;
         const start = audioContext.currentTime + 0.015;
-        notes.forEach(function (frequency, index) {
-          const beganAt = start + index * 0.105;
+        sound.notes.forEach(function (frequency, index) {
+          const beganAt = start + index * sound.gap;
           const oscillator = audioContext.createOscillator();
           const volume = audioContext.createGain();
-          oscillator.type = 'sine';
+          oscillator.type = sound.wave;
           oscillator.frequency.setValueAtTime(frequency, beganAt);
-          oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.18, beganAt + 0.055);
+          oscillator.frequency.exponentialRampToValueAtTime(frequency * sound.slide, beganAt + sound.duration * 0.55);
           volume.gain.setValueAtTime(0.0001, beganAt);
-          volume.gain.exponentialRampToValueAtTime(0.065, beganAt + 0.018);
-          volume.gain.exponentialRampToValueAtTime(0.0001, beganAt + 0.095);
+          volume.gain.exponentialRampToValueAtTime(sound.volume, beganAt + Math.min(0.025, sound.duration * 0.15));
+          volume.gain.exponentialRampToValueAtTime(0.0001, beganAt + sound.duration);
           oscillator.connect(volume);
           volume.connect(audioContext.destination);
           oscillator.start(beganAt);
-          oscillator.stop(beganAt + 0.1);
+          oscillator.stop(beganAt + sound.duration + 0.01);
         });
       }
 
       function showReaction(type) {
         if (!cameraStream) return;
         const reactions = {
-          happy: { emoji: '😄', title: '哈哈，太适合了！', note: '这件和整体造型很搭', laugh: true },
-          sad: { emoji: '🥺', title: '差一点点，再试试？', note: '换个颜色或款式看看', laugh: false },
-          excited: { emoji: '🤩', title: '新风格登场！', note: '左右滑动，看看下一件', laugh: false },
-          like: { emoji: '🥰', title: '这套我好喜欢！', note: '这个颜色和款式很适合你', laugh: true },
-          admire: { emoji: '✨', title: '搭得真有品味！', note: '这件单品选得很有眼光', laugh: false },
-          praise: { emoji: '🎉', title: '整套造型完成！', note: '你搭出了一身专属风格', laugh: false }
+          happy: { emoji: '😄', title: '哈哈，太适合了！', note: '这件和整体造型很搭' },
+          sad: { emoji: '🥺', title: '差一点点，再试试？', note: '换个颜色或款式看看' },
+          excited: { emoji: '🤩', title: '新风格登场！', note: '左右滑动，看看下一件' },
+          like: { emoji: '🥰', title: '这套我好喜欢！', note: '这个颜色和款式很适合你' },
+          admire: { emoji: '✨', title: '搭得真有品味！', note: '这件单品选得很有眼光' },
+          praise: { emoji: '🎉', title: '整套造型完成！', note: '你搭出了一身专属风格' }
         };
         const reaction = reactions[type];
         if (!reaction) return;
@@ -671,7 +679,7 @@
         reactionTimer = window.setTimeout(function () {
           ui.cameraReaction.classList.remove('is-visible');
         }, 1800);
-        if (reaction.laugh) playLaugh();
+        playReactionSound(type);
       }
 
       function updateStats() {
@@ -1371,10 +1379,10 @@
             try {
               ensureAudioContext();
             } catch (error) {
-              console.warn('无法初始化笑声音效：', error);
+              console.warn('无法初始化表情音效：', error);
               soundEnabled = false;
               ui.soundToggle.setAttribute('aria-pressed', 'false');
-              ui.soundToggle.textContent = '笑声音效：关';
+              ui.soundToggle.textContent = '表情音效：关';
             }
           }
           cameraStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
@@ -1434,13 +1442,13 @@
           try {
             if (!ensureAudioContext()) return;
           } catch (error) {
-            console.warn('无法启用笑声音效：', error);
+            console.warn('无法启用表情音效：', error);
             soundEnabled = false;
           }
         }
         ui.soundToggle.setAttribute('aria-pressed', String(soundEnabled));
-        ui.soundToggle.textContent = '笑声音效：' + (soundEnabled ? '开' : '关');
-        if (!soundEnabled) showToast('笑声音效已关闭，表情反馈仍会显示。');
+        ui.soundToggle.textContent = '表情音效：' + (soundEnabled ? '开' : '关');
+        if (!soundEnabled) showToast('表情音效已关闭，表情反馈仍会显示。');
       });
       ui.cameraClose.addEventListener('click', async function () {
         await stopCamera();
